@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateLeague, type League } from "@/lib/league";
 import { teamColor } from "@/lib/teams";
 import {
-  applyBall, startInnings, type BallEvent, type MatchEngineState, type PlayerLite, ballsToOvers, isPowerplayBall,
+  applyBall, startInnings, type BallEvent, type MatchEngineState, type PlayerLite,
+  ballsToOvers, isPowerplayBall, assertInningsValid, describeInningsEnd,
 } from "@/lib/matchEngine";
 import { processRecords } from "@/lib/records";
 import { evaluateCustomRecords } from "@/lib/customRecords";
