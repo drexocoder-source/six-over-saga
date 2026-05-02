@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateLeague, type League } from "@/lib/league";
 import { teamColor } from "@/lib/teams";
 import {
-  applyBall, startInnings, type BallEvent, type MatchEngineState, type PlayerLite, ballsToOvers, isPowerplayBall,
+  applyBall, startInnings, type BallEvent, type MatchEngineState, type PlayerLite,
+  ballsToOvers, isPowerplayBall, assertInningsValid, describeInningsEnd,
 } from "@/lib/matchEngine";
 import { processRecords } from "@/lib/records";
 import { evaluateCustomRecords } from "@/lib/customRecords";
@@ -386,12 +387,30 @@ export default function Match() {
     }
 
     if (inn.done) {
+      // Rule-checker: refuse to switch innings if the engine ended early without a valid reason.
+      const violation = assertInningsValid(engine, inn);
+      if (violation) {
+        console.error("[InningsRuleChecker]", violation, { inn, engine });
+        toast.error(`Innings end blocked: ${violation}`);
+        // Un-end the innings so play can continue rather than corrupting the match.
+        inn.done = false;
+        inn.doneReason = undefined;
+        setEngine({ ...engine });
+        return;
+      }
+      const reasonLine = describeInningsEnd(engine, inn);
+      console.info(`[InningsEnd] innings ${engine.currentInnings} (${inn.battingTeam}) — ${reasonLine}`);
       setAutoPlay(false);
       if (engine.currentInnings === 1) {
         setEngine(eg => eg ? { ...eg, target: eg.innings1.runs + 1 } : eg);
         setPhase("innings_break");
-        setCommentary(c => [`⏸️ End of 1st innings. ${inn.battingTeam} ${inn.runs}/${inn.wickets}. Target: ${inn.runs + 1}.`, ...c]);
+        setCommentary(c => [
+          `📋 Reason: ${reasonLine}`,
+          `⏸️ End of 1st innings. ${inn.battingTeam} ${inn.runs}/${inn.wickets}. Target: ${inn.runs + 1}.`,
+          ...c,
+        ]);
       } else {
+        setCommentary(c => [`📋 Reason: ${reasonLine}`, ...c]);
         finishMatch();
       }
       return;
@@ -604,7 +623,12 @@ export default function Match() {
     setPhase("done");
     setCommentary(c => [`🏆 ${text}. Player of the Match: ${potm?.name ?? "—"}`, ...c]);
 
-    const scorecard = { innings1: i1, innings2: i2, team_a: match.team_a, team_b: match.team_b, winner };
+    const endReasons = {
+      innings1: { reason: i1.doneReason ?? null, summary: describeInningsEnd(engine, i1) },
+      innings2: { reason: i2.doneReason ?? null, summary: describeInningsEnd(engine, i2) },
+    };
+    console.info("[MatchEnd]", match.id, endReasons);
+    const scorecard = { innings1: i1, innings2: i2, team_a: match.team_a, team_b: match.team_b, winner, endReasons };
     await supabase.from("matches").update({
       status: "done", winner, result_text: text, player_of_match: potm?.id ?? null,
       scorecard: scorecard as never, state: engine as never,

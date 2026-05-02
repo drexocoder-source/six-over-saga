@@ -7,9 +7,18 @@ import { teamLogo } from "@/lib/teamLogos";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Crown, Star, Shield } from "lucide-react";
+import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle } from "lucide-react";
 
 interface SquadRow { id: string; team_id: string; price: number; is_captain: boolean; is_vice_captain: boolean; players: any; }
+
+type InjuryStatus = "fit" | "injured" | "doubtful" | string;
+function injuryMeta(status: InjuryStatus | null | undefined, matchesLeft: number) {
+  const s = (status ?? "fit").toLowerCase();
+  if (s === "fit" || !s) return { label: "Fit", tone: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-500/10", available: true };
+  if (s === "doubtful") return { label: matchesLeft > 0 ? `Doubtful · ${matchesLeft}m` : "Doubtful", tone: "text-amber-400", border: "border-amber-500/40", bg: "bg-amber-500/10", available: true };
+  // injured / out / any other non-fit value
+  return { label: matchesLeft > 0 ? `Injured · ${matchesLeft}m` : "Injured", tone: "text-rose-400", border: "border-rose-500/40", bg: "bg-rose-500/10", available: false };
+}
 
 export default function Squads() {
   const [league, setLeague] = useState<League | null>(null);
@@ -109,11 +118,34 @@ export default function Squads() {
                         <div className="text-[10px] uppercase tracking-widest text-primary/80 mt-0.5">S{seasonNum} Kit</div>
                       </div>
                     </div>
-                    <div className="flex gap-6">
-                      <Stat label="Squad" value={squad.length}/>
-                      <Stat label="Captain" value={squad.find(r => r.is_captain)?.players?.name ?? "—"}/>
-                      <Stat label="Spend" value={`₹${totalSpend.toFixed(1)}`}/>
-                    </div>
+                    {(() => {
+                      const captainRow = squad.find(r => r.is_captain);
+                      const viceRow = squad.find(r => r.is_vice_captain);
+                      const capInj = injuryMeta(captainRow?.players?.injury_status, captainRow?.players?.injury_matches_left ?? 0);
+                      const injuredCount = squad.filter(r => !injuryMeta(r.players?.injury_status, r.players?.injury_matches_left ?? 0).available).length;
+                      return (
+                        <div className="flex gap-6 items-end flex-wrap">
+                          <Stat label="Squad" value={`${squad.length - injuredCount}/${squad.length}`}/>
+                          <div className="text-right">
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Captain</div>
+                            <div className="font-display text-xl flex items-center gap-2 justify-end">
+                              <span>{captainRow?.players?.name ?? "—"}</span>
+                              {captainRow && (
+                                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${capInj.tone} ${capInj.border} ${capInj.bg}`}>
+                                  {capInj.label}
+                                </Badge>
+                              )}
+                            </div>
+                            {captainRow && !capInj.available && (
+                              <div className="text-[10px] text-rose-400 flex items-center gap-1 justify-end mt-0.5">
+                                <AlertTriangle className="w-3 h-3"/> Vice-captain {viceRow?.players?.name ?? "(none)"} likely leads.
+                              </div>
+                            )}
+                          </div>
+                          <Stat label="Spend" value={`₹${totalSpend.toFixed(1)}`}/>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </Card>
 
@@ -124,6 +156,7 @@ export default function Squads() {
                         <tr>
                           <th className="text-left px-3 py-2">Player</th>
                           <th className="text-left px-2 py-2">Role</th>
+                          <th className="text-left px-2 py-2">Status</th>
                           <th className="text-right px-2 py-2">Rating</th>
                           <th className="text-right px-2 py-2">Price ₹Cr</th>
                           <th className="text-right px-2 py-2">Career M</th>
@@ -151,6 +184,16 @@ export default function Squads() {
                                 </div>
                               </td>
                               <td className="px-2 py-2"><Badge variant="outline" className="text-[10px]">{p?.role}</Badge></td>
+                              <td className="px-2 py-2">
+                                {(() => {
+                                  const m = injuryMeta(p?.injury_status, p?.injury_matches_left ?? 0);
+                                  return (
+                                    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${m.tone} ${m.border} ${m.bg}`}>
+                                      <HeartPulse className="w-3 h-3"/> {m.label}
+                                    </span>
+                                  );
+                                })()}
+                              </td>
                               <td className="text-right px-2 py-2 font-mono"><span className="text-primary">{p?.rating}</span></td>
                               <td className="text-right px-2 py-2 font-mono">₹{Number(r.price).toFixed(1)}</td>
                               <td className="text-right px-2 py-2 font-mono text-muted-foreground">{a.matches.size}</td>
@@ -160,7 +203,7 @@ export default function Squads() {
                           );
                         })}
                         {squad.length === 0 && (
-                          <tr><td colSpan={7} className="text-center px-3 py-8 text-muted-foreground">No squad locked for this season yet.</td></tr>
+                          <tr><td colSpan={8} className="text-center px-3 py-8 text-muted-foreground">No squad locked for this season yet.</td></tr>
                         )}
                       </tbody>
                     </table>
