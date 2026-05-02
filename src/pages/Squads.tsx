@@ -118,11 +118,34 @@ export default function Squads() {
                         <div className="text-[10px] uppercase tracking-widest text-primary/80 mt-0.5">S{seasonNum} Kit</div>
                       </div>
                     </div>
-                    <div className="flex gap-6">
-                      <Stat label="Squad" value={squad.length}/>
-                      <Stat label="Captain" value={squad.find(r => r.is_captain)?.players?.name ?? "—"}/>
-                      <Stat label="Spend" value={`₹${totalSpend.toFixed(1)}`}/>
-                    </div>
+                    {(() => {
+                      const captainRow = squad.find(r => r.is_captain);
+                      const viceRow = squad.find(r => r.is_vice_captain);
+                      const capInj = injuryMeta(captainRow?.players?.injury_status, captainRow?.players?.injury_matches_left ?? 0);
+                      const injuredCount = squad.filter(r => !injuryMeta(r.players?.injury_status, r.players?.injury_matches_left ?? 0).available).length;
+                      return (
+                        <div className="flex gap-6 items-end flex-wrap">
+                          <Stat label="Squad" value={`${squad.length - injuredCount}/${squad.length}`}/>
+                          <div className="text-right">
+                            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Captain</div>
+                            <div className="font-display text-xl flex items-center gap-2 justify-end">
+                              <span>{captainRow?.players?.name ?? "—"}</span>
+                              {captainRow && (
+                                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${capInj.tone} ${capInj.border} ${capInj.bg}`}>
+                                  {capInj.label}
+                                </Badge>
+                              )}
+                            </div>
+                            {captainRow && !capInj.available && (
+                              <div className="text-[10px] text-rose-400 flex items-center gap-1 justify-end mt-0.5">
+                                <AlertTriangle className="w-3 h-3"/> Vice-captain {viceRow?.players?.name ?? "(none)"} likely leads.
+                              </div>
+                            )}
+                          </div>
+                          <Stat label="Spend" value={`₹${totalSpend.toFixed(1)}`}/>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </Card>
 
@@ -133,6 +156,7 @@ export default function Squads() {
                         <tr>
                           <th className="text-left px-3 py-2">Player</th>
                           <th className="text-left px-2 py-2">Role</th>
+                          <th className="text-left px-2 py-2">Status</th>
                           <th className="text-right px-2 py-2">Rating</th>
                           <th className="text-right px-2 py-2">Price ₹Cr</th>
                           <th className="text-right px-2 py-2">Career M</th>
