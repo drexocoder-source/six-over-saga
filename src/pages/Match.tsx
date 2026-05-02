@@ -623,7 +623,12 @@ export default function Match() {
     setPhase("done");
     setCommentary(c => [`🏆 ${text}. Player of the Match: ${potm?.name ?? "—"}`, ...c]);
 
-    const scorecard = { innings1: i1, innings2: i2, team_a: match.team_a, team_b: match.team_b, winner };
+    const endReasons = {
+      innings1: { reason: i1.doneReason ?? null, summary: describeInningsEnd(engine, i1) },
+      innings2: { reason: i2.doneReason ?? null, summary: describeInningsEnd(engine, i2) },
+    };
+    console.info("[MatchEnd]", match.id, endReasons);
+    const scorecard = { innings1: i1, innings2: i2, team_a: match.team_a, team_b: match.team_b, winner, endReasons };
     await supabase.from("matches").update({
       status: "done", winner, result_text: text, player_of_match: potm?.id ?? null,
       scorecard: scorecard as never, state: engine as never,
