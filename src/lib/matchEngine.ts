@@ -222,21 +222,31 @@ export function applyBall(
     needsBowler = true;
   }
 
-  // Wicket: bring in next batter (unless all out)
+  // Wicket: bring in next batter (unless all out).
+  // IMPORTANT: only auto-assign a new batter when the caller explicitly passes
+  // `opts.newBatterId`. Otherwise, return `needsBatter: true` and let the UI flow
+  // (manual picker / auto-mode driver) assign the next batter via a separate
+  // confirm call. Auto-assigning here used to consume an extra batter from the
+  // order on every wicket (engine picked one, UI then picked another), which
+  // caused innings to end "all-out" prematurely around 4–6 wickets.
   if (isWicket) {
     if (inn.wickets >= state.allOutWickets) {
       inn.done = true; inn.doneReason = "allOut";
-    } else {
-      // next batter
-      const nextId = opts?.newBatterId ?? battingXI[inn.nextBatterIdx]?.id;
-      if (nextId) {
-        const nextP = battingXI.find(p => p.id === nextId)!;
+    } else if (opts?.newBatterId) {
+      const nextId = opts.newBatterId;
+      const nextP = battingXI.find(p => p.id === nextId);
+      if (nextP) {
         inn.bat[nextId] = newBat(nextP);
         inn.battingOrder.push(nextId);
         inn.strikerId = nextId;
         inn.nextBatterIdx = battingXI.findIndex(p => p.id === nextId) + 1;
-      } else {
-        // shouldn't happen but guard
+      }
+    } else {
+      // No batter supplied — leave strikerId as-is; caller must handle
+      // `needsBatter: true` (see return value) and call back with a chosen batter.
+      // Only mark all-out if there are literally no XI batters left who haven't batted.
+      const remaining = battingXI.filter(p => !inn.bat[p.id]);
+      if (remaining.length === 0) {
         inn.done = true; inn.doneReason = "allOut";
       }
     }
