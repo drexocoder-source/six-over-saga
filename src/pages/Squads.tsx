@@ -7,9 +7,18 @@ import { teamLogo } from "@/lib/teamLogos";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Crown, Star, Shield } from "lucide-react";
+import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle } from "lucide-react";
 
 interface SquadRow { id: string; team_id: string; price: number; is_captain: boolean; is_vice_captain: boolean; players: any; }
+
+type InjuryStatus = "fit" | "injured" | "doubtful" | string;
+function injuryMeta(status: InjuryStatus | null | undefined, matchesLeft: number) {
+  const s = (status ?? "fit").toLowerCase();
+  if (s === "fit" || !s) return { label: "Fit", tone: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-500/10", available: true };
+  if (s === "doubtful") return { label: matchesLeft > 0 ? `Doubtful · ${matchesLeft}m` : "Doubtful", tone: "text-amber-400", border: "border-amber-500/40", bg: "bg-amber-500/10", available: true };
+  // injured / out / any other non-fit value
+  return { label: matchesLeft > 0 ? `Injured · ${matchesLeft}m` : "Injured", tone: "text-rose-400", border: "border-rose-500/40", bg: "bg-rose-500/10", available: false };
+}
 
 export default function Squads() {
   const [league, setLeague] = useState<League | null>(null);
