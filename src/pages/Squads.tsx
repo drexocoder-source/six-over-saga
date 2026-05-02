@@ -203,7 +203,7 @@ export default function Squads() {
                           );
                         })}
                         {squad.length === 0 && (
-                          <tr><td colSpan={7} className="text-center px-3 py-8 text-muted-foreground">No squad locked for this season yet.</td></tr>
+                          <tr><td colSpan={8} className="text-center px-3 py-8 text-muted-foreground">No squad locked for this season yet.</td></tr>
                         )}
                       </tbody>
                     </table>
