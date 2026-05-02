@@ -184,6 +184,16 @@ export default function Squads() {
                                 </div>
                               </td>
                               <td className="px-2 py-2"><Badge variant="outline" className="text-[10px]">{p?.role}</Badge></td>
+                              <td className="px-2 py-2">
+                                {(() => {
+                                  const m = injuryMeta(p?.injury_status, p?.injury_matches_left ?? 0);
+                                  return (
+                                    <span className={`inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border ${m.tone} ${m.border} ${m.bg}`}>
+                                      <HeartPulse className="w-3 h-3"/> {m.label}
+                                    </span>
+                                  );
+                                })()}
+                              </td>
                               <td className="text-right px-2 py-2 font-mono"><span className="text-primary">{p?.rating}</span></td>
                               <td className="text-right px-2 py-2 font-mono">₹{Number(r.price).toFixed(1)}</td>
                               <td className="text-right px-2 py-2 font-mono text-muted-foreground">{a.matches.size}</td>
