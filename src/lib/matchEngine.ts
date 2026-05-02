@@ -320,3 +320,38 @@ export function winProb(state: MatchEngineState): { batting: number; bowling: nu
   p = Math.max(2, Math.min(98, p));
   return { batting: Math.round(p), bowling: Math.round(100 - p) };
 }
+
+// ---------- Rule checker ----------
+// Returns null if the innings is allowed to be in its current `done` state,
+// or a string describing the violation. Use before switching innings to make
+// 100% sure we never end early due to a UI bug.
+export function assertInningsValid(state: MatchEngineState, inn: InningsState): string | null {
+  if (!inn.done) return null;
+  const totalLegal = state.oversPerInnings * 6;
+  const oversFinished = inn.legalBalls >= totalLegal;
+  const allOut = inn.wickets >= state.allOutWickets;
+  const chaseDone = state.currentInnings === 2 && state.target !== undefined && inn.runs >= state.target;
+  if (!oversFinished && !allOut && !chaseDone) {
+    return `Illegal innings end: wickets=${inn.wickets}/${state.allOutWickets}, balls=${inn.legalBalls}/${totalLegal}, runs=${inn.runs}, target=${state.target ?? "—"}, reason=${inn.doneReason}`;
+  }
+  // Make sure the recorded reason matches reality
+  const expected = chaseDone ? "chaseDone" : oversFinished ? "oversComplete" : "allOut";
+  if (inn.doneReason && inn.doneReason !== expected) {
+    return `Mismatched end reason: recorded=${inn.doneReason}, expected=${expected}`;
+  }
+  return null;
+}
+
+export function describeInningsEnd(state: MatchEngineState, inn: InningsState): string {
+  const totalLegal = state.oversPerInnings * 6;
+  switch (inn.doneReason) {
+    case "allOut":
+      return `All out — ${inn.wickets}/${state.allOutWickets} wickets at ${ballsToOvers(inn.legalBalls)} ov.`;
+    case "oversComplete":
+      return `Overs complete — ${ballsToOvers(inn.legalBalls)}/${state.oversPerInnings}.0 bowled.`;
+    case "chaseDone":
+      return `Target chased — ${inn.runs}/${state.target} in ${ballsToOvers(inn.legalBalls)} ov.`;
+    default:
+      return `Innings ended (unknown reason) at ${ballsToOvers(inn.legalBalls)} ov, ${inn.wickets} wkts.`;
+  }
+}
