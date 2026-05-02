@@ -203,6 +203,7 @@ export type Database = {
           device_id: string
           id: string
           name: string
+          owner_id: string | null
           settings: Json
           teams: Json
           updated_at: string
@@ -213,6 +214,7 @@ export type Database = {
           device_id: string
           id?: string
           name?: string
+          owner_id?: string | null
           settings?: Json
           teams?: Json
           updated_at?: string
@@ -223,6 +225,7 @@ export type Database = {
           device_id?: string
           id?: string
           name?: string
+          owner_id?: string | null
           settings?: Json
           teams?: Json
           updated_at?: string
@@ -350,6 +353,7 @@ export type Database = {
           debut_season: number | null
           form: Json
           id: string
+          injury_matches_left: number
           injury_status: string | null
           injury_until_season: number | null
           league_id: string
@@ -368,6 +372,7 @@ export type Database = {
           debut_season?: number | null
           form?: Json
           id?: string
+          injury_matches_left?: number
           injury_status?: string | null
           injury_until_season?: number | null
           league_id: string
@@ -386,6 +391,7 @@ export type Database = {
           debut_season?: number | null
           form?: Json
           id?: string
+          injury_matches_left?: number
           injury_status?: string | null
           injury_until_season?: number | null
           league_id?: string
@@ -871,7 +877,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      user_owns_league: { Args: { _league_id: string }; Returns: boolean }
+      user_owns_match: { Args: { _match_id: string }; Returns: boolean }
+      user_owns_season: { Args: { _season_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

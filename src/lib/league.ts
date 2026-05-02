@@ -42,14 +42,36 @@ export const DEFAULT_SETTINGS: League["settings"] = {
 
 export async function getOrCreateLeague(): Promise<League> {
   const device_id = getDeviceId();
-  const { data: existing } = await supabase
-    .from("leagues")
-    .select("*")
-    .eq("device_id", device_id)
-    .maybeSingle();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  // Prefer an owned league for this user; otherwise fall back to a device-only league.
+  let existing: any = null;
+  if (user) {
+    const { data } = await supabase
+      .from("leagues")
+      .select("*")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    existing = data;
+  }
+  if (!existing) {
+    const { data } = await supabase
+      .from("leagues")
+      .select("*")
+      .eq("device_id", device_id)
+      .is("owner_id", null)
+      .maybeSingle();
+    existing = data;
+    // If signed in and we just found a device-only league, claim it.
+    if (existing && user) {
+      await supabase.from("leagues").update({ owner_id: user.id }).eq("id", existing.id);
+      existing.owner_id = user.id;
+    }
+  }
 
   if (existing) {
-    // Backfill any missing newer settings
     const merged = { ...DEFAULT_SETTINGS, ...(existing.settings as any) };
     return { ...(existing as any), settings: merged } as unknown as League;
   }
@@ -58,6 +80,7 @@ export async function getOrCreateLeague(): Promise<League> {
     .from("leagues")
     .insert({
       device_id,
+      owner_id: user?.id ?? null,
       name: "Indian Premier League",
       teams: DEFAULT_TEAMS as unknown as never,
       settings: DEFAULT_SETTINGS as unknown as never,
