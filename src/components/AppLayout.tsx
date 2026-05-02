@@ -1,6 +1,9 @@
-import { Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
+import { LogIn, LogOut } from "lucide-react";
 
 export function AppLayout() {
   return (
