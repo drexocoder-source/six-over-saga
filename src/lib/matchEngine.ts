@@ -222,6 +222,9 @@ export function applyBall(
     needsBowler = true;
   }
 
+  // Rule checker: an innings can ONLY end for one of three reasons.
+  // We assert this invariant whenever we set `done` below, and `assertInningsValid`
+  // can be called by the UI before any innings transition for an extra safety net.
   // Wicket: bring in next batter (unless all out).
   // IMPORTANT: only auto-assign a new batter when the caller explicitly passes
   // `opts.newBatterId`. Otherwise, return `needsBatter: true` and let the UI flow
