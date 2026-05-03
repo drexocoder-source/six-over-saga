@@ -5,6 +5,7 @@ import { getOrCreateLeague, type League } from "@/lib/league";
 import { teamColor } from "@/lib/teams";
 import { generateScheduleForSeason, computePointsTable, type PointsRow } from "@/lib/standings";
 import { ensurePlayoffsScheduled, wirePlayoffDependencies, STAGE_LABEL, STAGE_SUBTITLE } from "@/lib/playoffs";
+import { computeQualification } from "@/lib/qualification";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,8 +63,9 @@ export default function Schedule() {
     setTable(tbl);
 
     // If league done, schedule the IPL-style playoff bracket
-    const leagueMatches = (existing ?? []).filter(m => m.stage === "league");
-    const leagueDone = leagueMatches.length > 0 && leagueMatches.every(m => m.status === "done");
+    const leagueMatches = ((existing && existing.length) ? existing : (await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number")).data ?? [])
+      .filter((m: any) => m.stage === "league");
+    const leagueDone = leagueMatches.length > 0 && leagueMatches.every((m: any) => m.status === "done");
     if (leagueDone && tbl.length >= 4) {
       await ensurePlayoffsScheduled(s.id, tbl);
       await wirePlayoffDependencies(s.id);
@@ -111,6 +113,8 @@ export default function Schedule() {
   const playoffMatches = matches.filter(m => ["qualifier1","eliminator","qualifier2","final"].includes(m.stage));
   const finalMatch = playoffMatches.find(m => m.stage === "final");
   const championTeam = season?.status === "done" && finalMatch?.winner ? finalMatch.winner : null;
+  const matchesPerTeam = Math.max(0, (league.teams.length - 1) * 2);
+  const qual = computeQualification(table, matchesPerTeam, 4);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -156,11 +160,16 @@ export default function Schedule() {
               </tr>
             </thead>
             <tbody>
-              {table.map(r => (
-                <tr key={r.team_id} className={`border-t border-border/40 ${r.rank! <= 2 ? "bg-primary/5" : ""}`}>
-                  <td className="px-3 py-3">
-                    <span className={`inline-flex w-6 h-6 items-center justify-center rounded text-xs font-bold ${r.rank! <= 2 ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{r.rank}</span>
-                  </td>
+              {table.map(r => {
+                const q = qual[r.team_id];
+                const badge = q?.status === "Q"
+                  ? <span title={q.scenario} className="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">Q</span>
+                  : q?.status === "E"
+                  ? <span title={q.scenario} className="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">E</span>
+                  : <span className={`inline-flex w-7 h-6 items-center justify-center rounded text-xs font-bold ${r.rank! <= 4 ? "bg-primary/30 text-primary" : "bg-secondary"}`}>{r.rank}</span>;
+                return (
+                <tr key={r.team_id} className={`border-t border-border/40 ${q?.status === "Q" ? "bg-emerald-500/5" : q?.status === "E" ? "bg-rose-500/5 opacity-70" : r.rank! <= 4 ? "bg-primary/5" : ""}`} title={q?.scenario}>
+                  <td className="px-3 py-3">{badge}</td>
                   <td className="px-3 py-3 font-display text-lg" style={{ color: teamColor(r.team_id, league.teams) }}>{r.team_id}</td>
                   <td className="px-3 py-3 text-center font-mono">{r.P}</td>
                   <td className="px-3 py-3 text-center font-mono text-[hsl(var(--boundary))]">{r.W}</td>
@@ -179,9 +188,14 @@ export default function Schedule() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 py-3 border-t border-border/40 flex flex-wrap gap-3 items-center text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold">Q</span> Qualified for playoffs</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center font-bold">E</span> Mathematically eliminated</span>
+          <span className="ml-auto italic">Hover a row for the qualification scenario.</span>
         </div>
       </Card>
 
@@ -195,9 +209,18 @@ export default function Schedule() {
             </div>
             <Trophy className="w-6 h-6 text-primary" />
           </div>
+          <div className="hidden md:flex items-center justify-around text-[10px] text-muted-foreground mb-2 px-3">
+            <span className="text-emerald-400">▼ Winner → Final</span>
+            <span className="text-rose-400">▼ Loser → Q2</span>
+            <span className="text-emerald-400">▼ Winner → Q2</span>
+            <span className="text-rose-400">▼ Loser out</span>
+            <span className="text-primary">▼ Winner → Final</span>
+            <span className="text-primary">🏆</span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {(["qualifier1","eliminator","qualifier2","final"] as const).map(stage => {
+            {(["qualifier1","eliminator","qualifier2","final"] as const).map((stage, idx) => {
               const m = playoffMatches.find(x => x.stage === stage);
+              const stageNumLabel = ["1","2","3","🏆"][idx];
               if (!m) return (
                 <div key={stage} className="p-4 rounded-lg border border-dashed border-border/50 bg-secondary/10">
                   <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{STAGE_LABEL[stage]}</div>
@@ -207,26 +230,31 @@ export default function Schedule() {
               const isFinal = stage === "final";
               const playable = m.status !== "done" && m.team_a !== "TBD" && m.team_b !== "TBD";
               return (
-                <div key={stage} className={`p-4 rounded-lg border ${isFinal ? "border-primary/60 bg-primary/5" : "border-border/60 bg-secondary/20"} space-y-2 relative overflow-hidden`}>
+                <div key={stage} className={`p-4 rounded-lg border ${isFinal ? "border-primary/60 bg-primary/10 shadow-[0_0_30px_-10px_hsl(var(--primary))]" : "border-border/60 bg-secondary/20"} space-y-2 relative overflow-hidden`}>
+                  <div className="absolute top-1 right-2 font-display text-3xl text-primary/15 select-none">{stageNumLabel}</div>
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] uppercase tracking-widest text-primary">{STAGE_LABEL[stage]}</div>
                     {m.status === "done" ? <Badge className="bg-[hsl(var(--boundary))]/20 text-[hsl(var(--boundary))]">Done</Badge>
                       : m.status === "live" ? <Badge className="bg-[hsl(var(--wicket))]/20 text-[hsl(var(--wicket))]">LIVE</Badge>
                       : <Badge variant="outline">Scheduled</Badge>}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">{STAGE_SUBTITLE[stage]}</div>
-                  <div className="flex items-center justify-between font-display text-xl">
-                    <span style={{ color: teamColor(m.team_a, league.teams) }} className={m.status === "done" && m.winner === m.team_a ? "" : m.status === "done" ? "opacity-50" : ""}>{m.team_a}</span>
-                    <span className="text-muted-foreground text-xs">vs</span>
-                    <span style={{ color: teamColor(m.team_b, league.teams) }} className={m.status === "done" && m.winner === m.team_b ? "" : m.status === "done" ? "opacity-50" : ""}>{m.team_b}</span>
+                  <div className="text-[10px] text-muted-foreground italic">{STAGE_SUBTITLE[stage]}</div>
+                  <div className="space-y-1">
+                    {[m.team_a, m.team_b].map(t => (
+                      <div key={t} className={`flex items-center justify-between rounded px-2 py-1.5 ${m.status === "done" && m.winner === t ? "bg-emerald-500/10 border border-emerald-500/40" : m.status === "done" ? "opacity-40 line-through" : "bg-background/40 border border-border/40"}`}>
+                        <span className="font-display text-base" style={{ color: teamColor(t, league.teams) }}>{t}</span>
+                        {m.status === "done" && m.winner === t && <span className="text-[10px] text-emerald-400 font-bold">WINNER</span>}
+                      </div>
+                    ))}
                   </div>
-                  {m.result_text && <div className="text-[11px] text-primary">{m.result_text}</div>}
+                  {m.match_date && <div className="text-[10px] text-muted-foreground">📅 {new Date(m.match_date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</div>}
+                  {m.venue && <div className="text-[10px] text-muted-foreground">📍 {m.venue}</div>}
+                  {m.result_text && <div className="text-[11px] text-primary font-medium">{m.result_text}</div>}
                   {playable && (
                     <Button size="sm" onClick={() => startMatch(m.id)} className={`w-full ${isFinal ? "gradient-primary text-primary-foreground" : ""}`} variant={isFinal ? "default" : "outline"}>
                       <Play className="w-3 h-3 mr-1"/>{m.status === "live" ? "Resume" : isFinal ? "Play Final" : "Play"}
                     </Button>
                   )}
-                  {m.venue && <div className="text-[10px] text-muted-foreground">📍 {m.venue}</div>}
                 </div>
               );
             })}

@@ -1,0 +1,222 @@
+// Multi-scope records aggregator.
+// Computes records across All-Time, per Season, and per Match from raw scorecards.
+import { supabase } from "@/integrations/supabase/client";
+
+export interface Inn {
+  battingTeam: string; bowlingTeam: string;
+  runs: number; wickets: number; legalBalls: number;
+  bat: Record<string, any>; bowl: Record<string, any>;
+  ballEvents?: { runs: number; over: number; isWicket?: boolean; isBoundary?: 4 | 6 }[];
+}
+export interface Sc { innings1?: Inn; innings2?: Inn; team_a: string; team_b: string; winner: string | null; }
+
+export interface MatchRow {
+  id: string; season_id: string; season_number?: number; match_number: number;
+  scorecard: Sc; team_a: string; team_b: string; winner: string | null;
+}
+
+/** Fetch all done matches in a league with season number attached. */
+export async function loadAllDoneMatches(leagueId: string): Promise<MatchRow[]> {
+  const { data: seasons } = await supabase.from("seasons").select("id, season_number").eq("league_id", leagueId);
+  const sMap = new Map((seasons ?? []).map(s => [s.id, s.season_number]));
+  const ids = (seasons ?? []).map(s => s.id);
+  if (!ids.length) return [];
+  const { data } = await supabase.from("matches")
+    .select("id, season_id, match_number, scorecard, team_a, team_b, winner, status")
+    .in("season_id", ids).eq("status", "done").order("match_number");
+  return (data ?? []).map((m: any) => ({ ...m, season_number: sMap.get(m.season_id) ?? 0 })) as MatchRow[];
+}
+
+// ----- Individual best entries -----
+export interface IndEntry {
+  player_id: string; name: string; team: string; value: number; detail: string;
+  match_id?: string; season_number?: number;
+}
+export interface TeamEntry {
+  team: string; value: number; detail: string;
+  vs?: string; match_id?: string; season_number?: number;
+}
+
+/** Highest individual scores across passed matches. */
+export function topBatScores(matches: MatchRow[], limit = 10): IndEntry[] {
+  const out: IndEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bat).forEach((b: any) => {
+        if ((b.runs ?? 0) === 0 && !b.balls) return;
+        out.push({
+          player_id: b.player_id, name: b.name, team: inn.battingTeam,
+          value: b.runs ?? 0,
+          detail: `${b.runs}${b.out ? "" : "*"} (${b.balls}b, ${b.fours}×4, ${b.sixes}×6)`,
+          match_id: m.id, season_number: m.season_number,
+        });
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Most 100s aggregate across matches per player. */
+export function aggregate(matches: MatchRow[], scope: "career" | "season" | "match" = "career") {
+  const agg = new Map<string, { player_id: string; name: string; team: string; runs: number; balls: number; fours: number; sixes: number; fifties: number; hundreds: number; wickets: number; bowlBalls: number; bowlRuns: number; matches: Set<string> }>();
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bat).forEach((b: any) => {
+        const a = agg.get(b.player_id) ?? { player_id: b.player_id, name: b.name, team: inn.battingTeam, runs: 0, balls: 0, fours: 0, sixes: 0, fifties: 0, hundreds: 0, wickets: 0, bowlBalls: 0, bowlRuns: 0, matches: new Set<string>() };
+        a.runs += b.runs ?? 0; a.balls += b.balls ?? 0; a.fours += b.fours ?? 0; a.sixes += b.sixes ?? 0;
+        if ((b.runs ?? 0) >= 50 && (b.runs ?? 0) < 100) a.fifties++;
+        if ((b.runs ?? 0) >= 100) a.hundreds++;
+        a.matches.add(m.id);
+        agg.set(b.player_id, a);
+      });
+      Object.values(inn.bowl).forEach((b: any) => {
+        const a = agg.get(b.player_id) ?? { player_id: b.player_id, name: b.name, team: inn.bowlingTeam, runs: 0, balls: 0, fours: 0, sixes: 0, fifties: 0, hundreds: 0, wickets: 0, bowlBalls: 0, bowlRuns: 0, matches: new Set<string>() };
+        a.wickets += b.wickets ?? 0; a.bowlBalls += b.balls ?? 0; a.bowlRuns += b.runs ?? 0;
+        a.matches.add(m.id);
+        agg.set(b.player_id, a);
+      });
+    }
+  }
+  return Array.from(agg.values());
+}
+
+export function topBest(matches: MatchRow[], key: "runs" | "wickets" | "fifties" | "hundreds" | "sixes" | "fours", limit = 10): IndEntry[] {
+  const agg = aggregate(matches);
+  return agg
+    .filter(a => (a as any)[key] > 0)
+    .sort((a, b) => (b as any)[key] - (a as any)[key])
+    .slice(0, limit)
+    .map(a => ({
+      player_id: a.player_id, name: a.name, team: a.team,
+      value: (a as any)[key],
+      detail: `${(a as any)[key]} ${key} in ${a.matches.size} match${a.matches.size === 1 ? "" : "es"}`,
+    }));
+}
+
+export function bestBowlingFigures(matches: MatchRow[], limit = 10): IndEntry[] {
+  const out: IndEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bowl).forEach((b: any) => {
+        if ((b.wickets ?? 0) === 0) return;
+        out.push({
+          player_id: b.player_id, name: b.name, team: inn.bowlingTeam,
+          value: (b.wickets ?? 0) * 1000 - (b.runs ?? 0),
+          detail: `${b.wickets}/${b.runs} (${Math.floor((b.balls ?? 0) / 6)}.${(b.balls ?? 0) % 6} ov)`,
+          match_id: m.id, season_number: m.season_number,
+        });
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+// ----- Team records -----
+export function teamHighestTotals(matches: MatchRow[], limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      out.push({
+        team: inn.battingTeam, value: inn.runs,
+        detail: `${inn.runs}/${inn.wickets} (${Math.floor(inn.legalBalls / 6)}.${inn.legalBalls % 6} ov)`,
+        vs: inn.bowlingTeam, match_id: m.id, season_number: m.season_number,
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+export function teamLowestTotals(matches: MatchRow[], limit = 10): TeamEntry[] {
+  return teamHighestTotals(matches, 1000).reverse().slice(0, limit);
+}
+
+export function teamBestPowerplay(matches: MatchRow[], ppOvers = 6, limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn || !inn.ballEvents) continue;
+      let runs = 0, wkts = 0;
+      for (const e of inn.ballEvents) {
+        if (e.over < ppOvers) { runs += e.runs; if (e.isWicket) wkts++; }
+      }
+      if (runs === 0 && wkts === 0) continue;
+      out.push({
+        team: inn.battingTeam, value: runs,
+        detail: `${runs}/${wkts} in PP (${ppOvers} ov)`,
+        vs: inn.bowlingTeam, match_id: m.id, season_number: m.season_number,
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+export function teamMostBoundaries(matches: MatchRow[], limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      const fours = Object.values(inn.bat as any).reduce((s: number, b: any) => s + (b.fours ?? 0), 0) as number;
+      const sixes = Object.values(inn.bat as any).reduce((s: number, b: any) => s + (b.sixes ?? 0), 0) as number;
+      out.push({
+        team: inn.battingTeam, value: fours + sixes,
+        detail: `${fours + sixes} bdries (${fours}×4, ${sixes}×6)`,
+        vs: inn.bowlingTeam, match_id: m.id, season_number: m.season_number,
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+// ----- Milestones / Firsts -----
+export interface Milestone {
+  label: string;
+  detail: string;
+  player_id?: string;
+  team?: string;
+  match_id?: string;
+  season_number?: number;
+}
+
+export function milestones(matches: MatchRow[]): Milestone[] {
+  const out: Milestone[] = [];
+  let firstHundred = false, firstFifty = false, firstFiver = false, firstHattrick = false;
+  let firstSix = false, firstDuck = false, firstTeam200 = false;
+  for (const m of matches.slice().sort((a, b) => (a.season_number ?? 0) - (b.season_number ?? 0) || a.match_number - b.match_number)) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bat as any).forEach((b: any) => {
+        if (!firstFifty && (b.runs ?? 0) >= 50) {
+          firstFifty = true;
+          out.push({ label: "First Fifty", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!firstHundred && (b.runs ?? 0) >= 100) {
+          firstHundred = true;
+          out.push({ label: "First Century", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!firstSix && (b.sixes ?? 0) > 0) {
+          firstSix = true;
+          out.push({ label: "First Six", detail: `${b.name} cleared the rope`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!firstDuck && (b.runs ?? 0) === 0 && b.out && (b.balls ?? 0) > 0) {
+          firstDuck = true;
+          out.push({ label: "First Duck", detail: `${b.name} bagged a duck`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+      });
+      Object.values(inn.bowl as any).forEach((b: any) => {
+        if (!firstFiver && (b.wickets ?? 0) >= 5) {
+          firstFiver = true;
+          out.push({ label: "First Five-Wicket Haul", detail: `${b.name} — ${b.wickets}/${b.runs}`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
+        }
+      });
+      if (!firstTeam200 && inn.runs >= 200) {
+        firstTeam200 = true;
+        out.push({ label: "First 200+ Total", detail: `${inn.battingTeam} ${inn.runs}/${inn.wickets} vs ${inn.bowlingTeam}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+      }
+    }
+  }
+  return out;
+}
