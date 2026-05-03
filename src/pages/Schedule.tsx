@@ -113,6 +113,8 @@ export default function Schedule() {
   const playoffMatches = matches.filter(m => ["qualifier1","eliminator","qualifier2","final"].includes(m.stage));
   const finalMatch = playoffMatches.find(m => m.stage === "final");
   const championTeam = season?.status === "done" && finalMatch?.winner ? finalMatch.winner : null;
+  const matchesPerTeam = Math.max(0, (league.teams.length - 1) * 2);
+  const qual = computeQualification(table, matchesPerTeam, 4);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -158,11 +160,16 @@ export default function Schedule() {
               </tr>
             </thead>
             <tbody>
-              {table.map(r => (
-                <tr key={r.team_id} className={`border-t border-border/40 ${r.rank! <= 2 ? "bg-primary/5" : ""}`}>
-                  <td className="px-3 py-3">
-                    <span className={`inline-flex w-6 h-6 items-center justify-center rounded text-xs font-bold ${r.rank! <= 2 ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{r.rank}</span>
-                  </td>
+              {table.map(r => {
+                const q = qual[r.team_id];
+                const badge = q?.status === "Q"
+                  ? <span title={q.scenario} className="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">Q</span>
+                  : q?.status === "E"
+                  ? <span title={q.scenario} className="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">E</span>
+                  : <span className={`inline-flex w-7 h-6 items-center justify-center rounded text-xs font-bold ${r.rank! <= 4 ? "bg-primary/30 text-primary" : "bg-secondary"}`}>{r.rank}</span>;
+                return (
+                <tr key={r.team_id} className={`border-t border-border/40 ${q?.status === "Q" ? "bg-emerald-500/5" : q?.status === "E" ? "bg-rose-500/5 opacity-70" : r.rank! <= 4 ? "bg-primary/5" : ""}`} title={q?.scenario}>
+                  <td className="px-3 py-3">{badge}</td>
                   <td className="px-3 py-3 font-display text-lg" style={{ color: teamColor(r.team_id, league.teams) }}>{r.team_id}</td>
                   <td className="px-3 py-3 text-center font-mono">{r.P}</td>
                   <td className="px-3 py-3 text-center font-mono text-[hsl(var(--boundary))]">{r.W}</td>
@@ -181,7 +188,7 @@ export default function Schedule() {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </div>
