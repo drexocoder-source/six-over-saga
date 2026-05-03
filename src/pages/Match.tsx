@@ -20,6 +20,7 @@ import { PlayingXIPicker } from "@/components/match/PlayingXIPicker";
 import { LiveScorecard } from "@/components/match/LiveScorecard";
 import { FullScorecard } from "@/components/match/FullScorecard";
 import { WinProbBar, OverTimeline, CapsRace } from "@/components/match/MatchWidgets";
+import { InMatchDetails } from "@/components/match/InMatchDetails";
 import { PowerplayBreakdown } from "@/components/match/PowerplayBreakdown";
 import { SuperSixes } from "@/components/match/SuperSixes";
 import { BallButtons } from "@/components/match/BallButtons";
@@ -912,6 +913,7 @@ export default function Match() {
         )}
 
         <LiveScorecard state={engine} teamColorFn={tcolor} />
+        <InMatchDetails state={engine} teamColorFn={tcolor} />
         <WinProbBar state={engine} teamColorFn={tcolor} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
