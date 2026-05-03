@@ -209,9 +209,18 @@ export default function Schedule() {
             </div>
             <Trophy className="w-6 h-6 text-primary" />
           </div>
+          <div className="hidden md:flex items-center justify-around text-[10px] text-muted-foreground mb-2 px-3">
+            <span className="text-emerald-400">▼ Winner → Final</span>
+            <span className="text-rose-400">▼ Loser → Q2</span>
+            <span className="text-emerald-400">▼ Winner → Q2</span>
+            <span className="text-rose-400">▼ Loser out</span>
+            <span className="text-primary">▼ Winner → Final</span>
+            <span className="text-primary">🏆</span>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {(["qualifier1","eliminator","qualifier2","final"] as const).map(stage => {
+            {(["qualifier1","eliminator","qualifier2","final"] as const).map((stage, idx) => {
               const m = playoffMatches.find(x => x.stage === stage);
+              const stageNumLabel = ["1","2","3","🏆"][idx];
               if (!m) return (
                 <div key={stage} className="p-4 rounded-lg border border-dashed border-border/50 bg-secondary/10">
                   <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{STAGE_LABEL[stage]}</div>
@@ -221,26 +230,31 @@ export default function Schedule() {
               const isFinal = stage === "final";
               const playable = m.status !== "done" && m.team_a !== "TBD" && m.team_b !== "TBD";
               return (
-                <div key={stage} className={`p-4 rounded-lg border ${isFinal ? "border-primary/60 bg-primary/5" : "border-border/60 bg-secondary/20"} space-y-2 relative overflow-hidden`}>
+                <div key={stage} className={`p-4 rounded-lg border ${isFinal ? "border-primary/60 bg-primary/10 shadow-[0_0_30px_-10px_hsl(var(--primary))]" : "border-border/60 bg-secondary/20"} space-y-2 relative overflow-hidden`}>
+                  <div className="absolute top-1 right-2 font-display text-3xl text-primary/15 select-none">{stageNumLabel}</div>
                   <div className="flex items-center justify-between">
                     <div className="text-[10px] uppercase tracking-widest text-primary">{STAGE_LABEL[stage]}</div>
                     {m.status === "done" ? <Badge className="bg-[hsl(var(--boundary))]/20 text-[hsl(var(--boundary))]">Done</Badge>
                       : m.status === "live" ? <Badge className="bg-[hsl(var(--wicket))]/20 text-[hsl(var(--wicket))]">LIVE</Badge>
                       : <Badge variant="outline">Scheduled</Badge>}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">{STAGE_SUBTITLE[stage]}</div>
-                  <div className="flex items-center justify-between font-display text-xl">
-                    <span style={{ color: teamColor(m.team_a, league.teams) }} className={m.status === "done" && m.winner === m.team_a ? "" : m.status === "done" ? "opacity-50" : ""}>{m.team_a}</span>
-                    <span className="text-muted-foreground text-xs">vs</span>
-                    <span style={{ color: teamColor(m.team_b, league.teams) }} className={m.status === "done" && m.winner === m.team_b ? "" : m.status === "done" ? "opacity-50" : ""}>{m.team_b}</span>
+                  <div className="text-[10px] text-muted-foreground italic">{STAGE_SUBTITLE[stage]}</div>
+                  <div className="space-y-1">
+                    {[m.team_a, m.team_b].map(t => (
+                      <div key={t} className={`flex items-center justify-between rounded px-2 py-1.5 ${m.status === "done" && m.winner === t ? "bg-emerald-500/10 border border-emerald-500/40" : m.status === "done" ? "opacity-40 line-through" : "bg-background/40 border border-border/40"}`}>
+                        <span className="font-display text-base" style={{ color: teamColor(t, league.teams) }}>{t}</span>
+                        {m.status === "done" && m.winner === t && <span className="text-[10px] text-emerald-400 font-bold">WINNER</span>}
+                      </div>
+                    ))}
                   </div>
-                  {m.result_text && <div className="text-[11px] text-primary">{m.result_text}</div>}
+                  {m.match_date && <div className="text-[10px] text-muted-foreground">📅 {new Date(m.match_date).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</div>}
+                  {m.venue && <div className="text-[10px] text-muted-foreground">📍 {m.venue}</div>}
+                  {m.result_text && <div className="text-[11px] text-primary font-medium">{m.result_text}</div>}
                   {playable && (
                     <Button size="sm" onClick={() => startMatch(m.id)} className={`w-full ${isFinal ? "gradient-primary text-primary-foreground" : ""}`} variant={isFinal ? "default" : "outline"}>
                       <Play className="w-3 h-3 mr-1"/>{m.status === "live" ? "Resume" : isFinal ? "Play Final" : "Play"}
                     </Button>
                   )}
-                  {m.venue && <div className="text-[10px] text-muted-foreground">📍 {m.venue}</div>}
                 </div>
               );
             })}
