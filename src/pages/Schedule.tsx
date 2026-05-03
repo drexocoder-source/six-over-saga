@@ -5,6 +5,7 @@ import { getOrCreateLeague, type League } from "@/lib/league";
 import { teamColor } from "@/lib/teams";
 import { generateScheduleForSeason, computePointsTable, type PointsRow } from "@/lib/standings";
 import { ensurePlayoffsScheduled, wirePlayoffDependencies, STAGE_LABEL, STAGE_SUBTITLE } from "@/lib/playoffs";
+import { computeQualification } from "@/lib/qualification";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -62,8 +63,9 @@ export default function Schedule() {
     setTable(tbl);
 
     // If league done, schedule the IPL-style playoff bracket
-    const leagueMatches = (existing ?? []).filter(m => m.stage === "league");
-    const leagueDone = leagueMatches.length > 0 && leagueMatches.every(m => m.status === "done");
+    const leagueMatches = ((existing && existing.length) ? existing : (await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number")).data ?? [])
+      .filter((m: any) => m.stage === "league");
+    const leagueDone = leagueMatches.length > 0 && leagueMatches.every((m: any) => m.status === "done");
     if (leagueDone && tbl.length >= 4) {
       await ensurePlayoffsScheduled(s.id, tbl);
       await wirePlayoffDependencies(s.id);
