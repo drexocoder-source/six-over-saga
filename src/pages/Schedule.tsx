@@ -192,6 +192,11 @@ export default function Schedule() {
             </tbody>
           </table>
         </div>
+        <div className="px-4 py-3 border-t border-border/40 flex flex-wrap gap-3 items-center text-[10px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold">Q</span> Qualified for playoffs</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center font-bold">E</span> Mathematically eliminated</span>
+          <span className="ml-auto italic">Hover a row for the qualification scenario.</span>
+        </div>
       </Card>
 
       {/* Playoff bracket */}
