@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Trophy, Medal, Award, Target, Sparkles, Info } from "lucide-react";
+import { Loader2, Trophy, Medal, Award, Sparkles, Info } from "lucide-react";
 
 type Scope = "all" | "season" | "match";
 type SubTab = "team" | "individual" | "milestones";
