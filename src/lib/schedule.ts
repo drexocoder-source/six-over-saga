@@ -16,18 +16,50 @@ const HOME_OF: Record<string, string> = Object.fromEntries(
   DEFAULT_TEAMS.map(t => [t.id, t.home ?? t.fullName])
 );
 
-/** Build a realistic IPL schedule: each pair plays twice (home & away), no back-to-back same-team days, ~daily cadence. */
-export function buildSchedule(teams: string[], opts?: { startDate?: Date; teamsCfg?: TeamConfig[] }): ScheduledMatch[] {
+/** Build IPL-style schedule. Default = 14 matches per team (1 single round-robin + 5 extra rivalry second-legs).
+ *  Pass `matchesPerTeam` to control: 14 (default) or 18 (full DRR home+away). */
+export function buildSchedule(
+  teams: string[],
+  opts?: { startDate?: Date; teamsCfg?: TeamConfig[]; matchesPerTeam?: number }
+): ScheduledMatch[] {
   const homeOf: Record<string, string> = opts?.teamsCfg
     ? Object.fromEntries(opts.teamsCfg.map(t => [t.id, t.home ?? t.fullName]))
     : HOME_OF;
+  const N = teams.length;
+  const target = opts?.matchesPerTeam ?? 14;
 
-  // Build all (home, away) ordered pairs — each team hosts every other once.
+  // Build pair list. For double round-robin (target = 2*(N-1)) we keep both home/away.
+  // Otherwise: 1 single round-robin (each pair once) + up to `extraDoubles` per team as second legs.
   const pairs: { home: string; away: string }[] = [];
-  for (let i = 0; i < teams.length; i++) {
-    for (let j = 0; j < teams.length; j++) {
-      if (i !== j) pairs.push({ home: teams[i], away: teams[j] });
+  if (target >= 2 * (N - 1)) {
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) pairs.push({ home: teams[i], away: teams[j] });
+  } else {
+    // Single round-robin: random home assignment per pair
+    const rrHome: { home: string; away: string }[] = [];
+    for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+      const homeFirst = (i + j) % 2 === 0;
+      rrHome.push({ home: homeFirst ? teams[i] : teams[j], away: homeFirst ? teams[j] : teams[i] });
     }
+    // Doubles (return-leg) — pick a k-regular graph; offsets {1,2,...} until each team has `extra` doubles.
+    const extra = Math.max(0, target - (N - 1));
+    const used = new Set<string>();
+    const second: { home: string; away: string }[] = [];
+    const degOf = (id: string) => second.filter(p => p.home === id || p.away === id).length;
+    // Try offsets greedily
+    for (let off = 1; off <= Math.floor(N / 2) && Math.min(...teams.map(degOf)) < extra; off++) {
+      for (let i = 0; i < N; i++) {
+        const a = teams[i], b = teams[(i + off) % N];
+        if (a === b) continue;
+        const key = [a, b].sort().join("|");
+        if (used.has(key)) continue;
+        if (degOf(a) >= extra || degOf(b) >= extra) continue;
+        // Reverse home of the original RR meeting
+        const orig = rrHome.find(p => (p.home === a && p.away === b) || (p.home === b && p.away === a))!;
+        second.push({ home: orig.away, away: orig.home });
+        used.add(key);
+      }
+    }
+    pairs.push(...rrHome, ...second);
   }
 
   // Greedy ordering with rest-day constraint: a team can't play 2 days in a row.
