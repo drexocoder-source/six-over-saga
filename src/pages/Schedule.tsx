@@ -113,7 +113,10 @@ export default function Schedule() {
   const playoffMatches = matches.filter(m => ["qualifier1","eliminator","qualifier2","final"].includes(m.stage));
   const finalMatch = playoffMatches.find(m => m.stage === "final");
   const championTeam = season?.status === "done" && finalMatch?.winner ? finalMatch.winner : null;
-  const matchesPerTeam = Math.max(0, (league.teams.length - 1) * 2);
+  const leagueFixtures = matches.filter(m => m.stage === "league");
+  const perTeamCount: Record<string, number> = {};
+  leagueFixtures.forEach(m => { perTeamCount[m.team_a] = (perTeamCount[m.team_a] ?? 0) + 1; perTeamCount[m.team_b] = (perTeamCount[m.team_b] ?? 0) + 1; });
+  const matchesPerTeam = Math.max(14, ...Object.values(perTeamCount));
   const qual = computeQualification(table, matchesPerTeam, 4);
 
   return (
