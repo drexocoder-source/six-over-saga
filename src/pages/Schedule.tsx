@@ -174,7 +174,10 @@ export default function Schedule() {
                 return (
                 <tr key={r.team_id} className={`border-t border-border/40 ${q?.status === "Q" ? "bg-emerald-500/5" : q?.status === "E" ? "bg-rose-500/5 opacity-70" : r.rank! <= 4 ? "bg-primary/5" : ""}`} title={q?.scenario}>
                   <td className="px-3 py-3">{badge}</td>
-                  <td className="px-3 py-3 font-display text-lg" style={{ color: teamColor(r.team_id, league.teams) }}>{r.team_id}</td>
+                  <td className="px-3 py-3 font-display text-lg" style={{ color: teamColor(r.team_id, league.teams) }}>
+                    {r.team_id}
+                    {q?.scenario && <div className="text-[9px] font-sans tracking-normal text-muted-foreground normal-case mt-0.5 max-w-[180px] truncate" title={q.scenario}>{q.scenario}</div>}
+                  </td>
                   <td className="px-3 py-3 text-center font-mono">{r.P}</td>
                   <td className="px-3 py-3 text-center font-mono text-[hsl(var(--boundary))]">{r.W}</td>
                   <td className="px-3 py-3 text-center font-mono text-[hsl(var(--wicket))]">{r.L}</td>
