@@ -159,6 +159,7 @@ export default function Schedule() {
                 <th className="px-3 py-2 text-center">T</th>
                 <th className="px-3 py-2 text-center font-bold text-primary">PTS</th>
                 <th className="px-3 py-2 text-center">NRR</th>
+                <th className="px-3 py-2 text-center">Qual%</th>
                 <th className="px-3 py-2 text-center">Form</th>
               </tr>
             </thead>
