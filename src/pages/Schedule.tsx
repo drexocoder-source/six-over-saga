@@ -113,7 +113,10 @@ export default function Schedule() {
   const playoffMatches = matches.filter(m => ["qualifier1","eliminator","qualifier2","final"].includes(m.stage));
   const finalMatch = playoffMatches.find(m => m.stage === "final");
   const championTeam = season?.status === "done" && finalMatch?.winner ? finalMatch.winner : null;
-  const matchesPerTeam = Math.max(0, (league.teams.length - 1) * 2);
+  const leagueFixtures = matches.filter(m => m.stage === "league");
+  const perTeamCount: Record<string, number> = {};
+  leagueFixtures.forEach(m => { perTeamCount[m.team_a] = (perTeamCount[m.team_a] ?? 0) + 1; perTeamCount[m.team_b] = (perTeamCount[m.team_b] ?? 0) + 1; });
+  const matchesPerTeam = Math.max(14, ...Object.values(perTeamCount));
   const qual = computeQualification(table, matchesPerTeam, 4);
 
   return (
@@ -156,6 +159,7 @@ export default function Schedule() {
                 <th className="px-3 py-2 text-center">T</th>
                 <th className="px-3 py-2 text-center font-bold text-primary">PTS</th>
                 <th className="px-3 py-2 text-center">NRR</th>
+                <th className="px-3 py-2 text-center">Qual%</th>
                 <th className="px-3 py-2 text-center">Form</th>
               </tr>
             </thead>
@@ -170,7 +174,10 @@ export default function Schedule() {
                 return (
                 <tr key={r.team_id} className={`border-t border-border/40 ${q?.status === "Q" ? "bg-emerald-500/5" : q?.status === "E" ? "bg-rose-500/5 opacity-70" : r.rank! <= 4 ? "bg-primary/5" : ""}`} title={q?.scenario}>
                   <td className="px-3 py-3">{badge}</td>
-                  <td className="px-3 py-3 font-display text-lg" style={{ color: teamColor(r.team_id, league.teams) }}>{r.team_id}</td>
+                  <td className="px-3 py-3 font-display text-lg" style={{ color: teamColor(r.team_id, league.teams) }}>
+                    {r.team_id}
+                    {q?.scenario && <div className="text-[9px] font-sans tracking-normal text-muted-foreground normal-case mt-0.5 max-w-[180px] truncate" title={q.scenario}>{q.scenario}</div>}
+                  </td>
                   <td className="px-3 py-3 text-center font-mono">{r.P}</td>
                   <td className="px-3 py-3 text-center font-mono text-[hsl(var(--boundary))]">{r.W}</td>
                   <td className="px-3 py-3 text-center font-mono text-[hsl(var(--wicket))]">{r.L}</td>
@@ -178,6 +185,14 @@ export default function Schedule() {
                   <td className="px-3 py-3 text-center font-mono font-bold text-primary text-lg">{r.pts}</td>
                   <td className={`px-3 py-3 text-center font-mono ${r.nrr > 0 ? "text-[hsl(var(--boundary))]" : r.nrr < 0 ? "text-[hsl(var(--wicket))]" : ""}`}>
                     {r.nrr > 0 ? "+" : ""}{r.nrr.toFixed(3)}
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className={`text-xs font-bold font-mono ${q?.qualPct >= 75 ? "text-emerald-400" : q?.qualPct <= 15 ? "text-rose-400" : "text-primary"}`}>{q?.qualPct ?? 0}%</span>
+                      <div className="w-12 h-1 rounded-full bg-secondary/60 overflow-hidden">
+                        <div className={`h-full ${q?.qualPct >= 75 ? "bg-emerald-500" : q?.qualPct <= 15 ? "bg-rose-500" : "bg-primary"}`} style={{ width: `${q?.qualPct ?? 0}%` }}/>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex gap-0.5 justify-center">
