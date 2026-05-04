@@ -183,6 +183,14 @@ export default function Schedule() {
                   <td className={`px-3 py-3 text-center font-mono ${r.nrr > 0 ? "text-[hsl(var(--boundary))]" : r.nrr < 0 ? "text-[hsl(var(--wicket))]" : ""}`}>
                     {r.nrr > 0 ? "+" : ""}{r.nrr.toFixed(3)}
                   </td>
+                  <td className="px-3 py-3 text-center">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className={`text-xs font-bold font-mono ${q?.qualPct >= 75 ? "text-emerald-400" : q?.qualPct <= 15 ? "text-rose-400" : "text-primary"}`}>{q?.qualPct ?? 0}%</span>
+                      <div className="w-12 h-1 rounded-full bg-secondary/60 overflow-hidden">
+                        <div className={`h-full ${q?.qualPct >= 75 ? "bg-emerald-500" : q?.qualPct <= 15 ? "bg-rose-500" : "bg-primary"}`} style={{ width: `${q?.qualPct ?? 0}%` }}/>
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-3 py-3">
                     <div className="flex gap-0.5 justify-center">
                       {r.form.length === 0 && <span className="text-muted-foreground text-xs">—</span>}
