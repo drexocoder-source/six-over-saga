@@ -26,6 +26,8 @@ import { SuperSixes } from "@/components/match/SuperSixes";
 import { BallButtons } from "@/components/match/BallButtons";
 import { SpinWheel } from "@/components/match/SpinWheel";
 import { AiSimPanel, type CommentaryStyle, type Difficulty } from "@/components/match/AiSimPanel";
+import { CelebrationOverlay, type CelebrationEvent } from "@/components/match/CelebrationOverlay";
+import { newCelebrationTracker, detectCelebrations } from "@/lib/liveCelebrations";
 import { buildProbs, sampleOutcome, computePressure, aiCommentary, type SimContext } from "@/lib/aiSim";
 import { deriveAttrs, type PlayerAttrs } from "@/lib/skills";
 import { downloadJSON, downloadPDF, type ExportMeta } from "@/lib/exportMatch";
