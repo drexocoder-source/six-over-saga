@@ -26,6 +26,8 @@ import { SuperSixes } from "@/components/match/SuperSixes";
 import { BallButtons } from "@/components/match/BallButtons";
 import { SpinWheel } from "@/components/match/SpinWheel";
 import { AiSimPanel, type CommentaryStyle, type Difficulty } from "@/components/match/AiSimPanel";
+import { CelebrationOverlay, type CelebrationEvent } from "@/components/match/CelebrationOverlay";
+import { newCelebrationTracker, detectCelebrations } from "@/lib/liveCelebrations";
 import { buildProbs, sampleOutcome, computePressure, aiCommentary, type SimContext } from "@/lib/aiSim";
 import { deriveAttrs, type PlayerAttrs } from "@/lib/skills";
 import { downloadJSON, downloadPDF, type ExportMeta } from "@/lib/exportMatch";
@@ -146,6 +148,9 @@ export default function Match() {
   const [pendingBatter, setPendingBatter] = useState<string>("");
   const [pendingBowler, setPendingBowler] = useState<string>("");
   const [recentBigEvent, setRecentBigEvent] = useState<{ kind: "FOUR" | "SIX" | "WICKET"; text: string } | null>(null);
+  const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
+  const celebQueueRef = useRef<CelebrationEvent[]>([]);
+  const celebTrackerRef = useRef(newCelebrationTracker());
   const [secondInnSetup, setSecondInnSetup] = useState<{ openers?: [string,string]; bowler?: string }>({});
   const commentaryRef = useRef<HTMLDivElement>(null);
 
@@ -371,6 +376,8 @@ export default function Match() {
     const inn = engine.currentInnings === 1 ? engine.innings1 : engine.innings2!;
     const battingXI = engine.xi[inn.battingTeam];
     const wasPP = isPowerplayBall(engine, inn.legalBalls);
+    const strikerBefore = inn.strikerId;
+    const bowlerBefore = inn.bowlerId;
     const result = applyBall(engine, ev, battingXI);
     setEngine({ ...engine });
 
@@ -385,6 +392,18 @@ export default function Match() {
     else if (result.events.isWicket) setRecentBigEvent({ kind: "WICKET", text: "WICKET!! 🎯" });
     if (result.events.isFour || result.events.isSix || result.events.isWicket) {
       setTimeout(() => setRecentBigEvent(null), 1800);
+    }
+
+    // 🎉 Live celebration overlays (50/100, hat-trick, 5W, streaks, team milestones)
+    const celebs = detectCelebrations(engine, celebTrackerRef.current, {
+      isFour: result.events.isFour, isSix: result.events.isSix,
+      isWicket: result.events.isWicket, isExtra: result.events.isExtra,
+      strikerId: strikerBefore, bowlerId: bowlerBefore,
+    });
+    if (celebs.length) {
+      celebQueueRef.current.push(...celebs);
+      if (!celebration) setCelebration(celebQueueRef.current.shift() ?? null);
+      celebs.forEach(c => setCommentary(cm => [`✨ ${c.title} — ${c.subtitle ?? ""}`, ...cm]));
     }
 
     if (inn.done) {
@@ -861,6 +880,12 @@ export default function Match() {
             </div>
           </div>
         )}
+
+        {/* 🎉 Live celebration overlay (50/100, hat-trick, 5W, streaks, team milestones) */}
+        <CelebrationOverlay
+          event={celebration}
+          onClose={() => setCelebration(celebQueueRef.current.shift() ?? null)}
+        />
 
         {/* Match done banner */}
         {phase === "done" && (
