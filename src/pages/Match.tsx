@@ -148,6 +148,9 @@ export default function Match() {
   const [pendingBatter, setPendingBatter] = useState<string>("");
   const [pendingBowler, setPendingBowler] = useState<string>("");
   const [recentBigEvent, setRecentBigEvent] = useState<{ kind: "FOUR" | "SIX" | "WICKET"; text: string } | null>(null);
+  const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
+  const celebQueueRef = useRef<CelebrationEvent[]>([]);
+  const celebTrackerRef = useRef(newCelebrationTracker());
   const [secondInnSetup, setSecondInnSetup] = useState<{ openers?: [string,string]; bowler?: string }>({});
   const commentaryRef = useRef<HTMLDivElement>(null);
 
