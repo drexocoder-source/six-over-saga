@@ -291,11 +291,16 @@ export interface Milestone {
 export function milestones(matches: MatchRow[]): Milestone[] {
   const out: Milestone[] = [];
   let firstHundred = false, firstFifty = false, firstFiver = false, firstHattrick = false;
-  let firstSix = false, firstDuck = false, firstTeam200 = false;
+  let firstSix = false, firstFour = false, firstDuck = false, firstWicket = false, firstMaiden = false;
+  let firstTeam200 = false, firstTeam100 = false, firstSuperOver = false, firstTie = false;
   for (const m of matches.slice().sort((a, b) => (a.season_number ?? 0) - (b.season_number ?? 0) || a.match_number - b.match_number)) {
     for (const ik of ["innings1", "innings2"] as const) {
       const inn = m.scorecard?.[ik]; if (!inn) continue;
       Object.values(inn.bat as any).forEach((b: any) => {
+        if (!firstFour && (b.fours ?? 0) > 0) {
+          firstFour = true;
+          out.push({ label: "First Four", detail: `${b.name} pierced the field`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
         if (!firstFifty && (b.runs ?? 0) >= 50) {
           firstFifty = true;
           out.push({ label: "First Fifty", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
@@ -314,15 +319,32 @@ export function milestones(matches: MatchRow[]): Milestone[] {
         }
       });
       Object.values(inn.bowl as any).forEach((b: any) => {
+        if (!firstWicket && (b.wickets ?? 0) > 0) {
+          firstWicket = true;
+          out.push({ label: "First Wicket", detail: `${b.name} struck first`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
+        }
         if (!firstFiver && (b.wickets ?? 0) >= 5) {
           firstFiver = true;
           out.push({ label: "First Five-Wicket Haul", detail: `${b.name} — ${b.wickets}/${b.runs}`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
         }
+        if (!firstMaiden && (b.balls ?? 0) >= 6 && (b.runs ?? 0) === 0) {
+          firstMaiden = true;
+          out.push({ label: "First Maiden Over", detail: `${b.name} — 6 dot balls`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
+        }
       });
+      if (!firstTeam100 && inn.runs >= 100) {
+        firstTeam100 = true;
+        out.push({ label: "First 100+ Total", detail: `${inn.battingTeam} ${inn.runs}/${inn.wickets}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+      }
       if (!firstTeam200 && inn.runs >= 200) {
         firstTeam200 = true;
         out.push({ label: "First 200+ Total", detail: `${inn.battingTeam} ${inn.runs}/${inn.wickets} vs ${inn.bowlingTeam}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
       }
+    }
+    // First tie
+    if (!firstTie && m.scorecard?.innings1 && m.scorecard?.innings2 && m.scorecard.innings1.runs === m.scorecard.innings2.runs && !m.winner) {
+      firstTie = true;
+      out.push({ label: "First Tied Match", detail: `${m.team_a} vs ${m.team_b} — both finished on ${m.scorecard.innings1.runs}`, match_id: m.id, season_number: m.season_number });
     }
   }
   return out;
