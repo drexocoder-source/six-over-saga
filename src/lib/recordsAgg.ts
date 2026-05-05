@@ -95,6 +95,113 @@ export function topBest(matches: MatchRow[], key: "runs" | "wickets" | "fifties"
     }));
 }
 
+/** Fastest fifty/century — by balls faced. */
+export function fastestMilestone(matches: MatchRow[], milestone: 50 | 100, limit = 10): IndEntry[] {
+  const out: IndEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bat).forEach((b: any) => {
+        if ((b.runs ?? 0) >= milestone && (b.balls ?? 0) > 0) {
+          out.push({
+            player_id: b.player_id, name: b.name, team: inn.battingTeam,
+            value: b.balls, // lower is better — we'll invert sort
+            detail: `${milestone} off ${b.balls} (final: ${b.runs}${b.out ? "" : "*"})`,
+            match_id: m.id, season_number: m.season_number,
+          });
+        }
+      });
+    }
+  }
+  return out.sort((a, b) => a.value - b.value).slice(0, limit);
+}
+
+/** Best strike rate in a single innings (min balls). */
+export function bestStrikeRateInnings(matches: MatchRow[], minBalls = 10, limit = 10): IndEntry[] {
+  const out: IndEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bat).forEach((b: any) => {
+        if ((b.balls ?? 0) >= minBalls) {
+          const sr = (b.runs / b.balls) * 100;
+          out.push({
+            player_id: b.player_id, name: b.name, team: inn.battingTeam,
+            value: +sr.toFixed(1),
+            detail: `SR ${sr.toFixed(1)} — ${b.runs}(${b.balls})`,
+            match_id: m.id, season_number: m.season_number,
+          });
+        }
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Best economy in a single innings spell (min overs). */
+export function bestEconomySpell(matches: MatchRow[], minOvers = 2, limit = 10): IndEntry[] {
+  const out: IndEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bowl).forEach((b: any) => {
+        if ((b.balls ?? 0) >= minOvers * 6) {
+          const econ = (b.runs / b.balls) * 6;
+          out.push({
+            player_id: b.player_id, name: b.name, team: inn.bowlingTeam,
+            value: -econ, // lower econ wins; store negative for desc sort
+            detail: `Econ ${econ.toFixed(2)} — ${b.wickets}/${b.runs} (${Math.floor(b.balls / 6)}.${b.balls % 6} ov)`,
+            match_id: m.id, season_number: m.season_number,
+          });
+        }
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit).map(e => ({ ...e, value: +Math.abs(e.value).toFixed(2) }));
+}
+
+/** Most dot balls in an innings spell. */
+export function mostDotsInnings(matches: MatchRow[], limit = 10): IndEntry[] {
+  const out: IndEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bowl).forEach((b: any) => {
+        if ((b.dots ?? 0) > 0) {
+          out.push({
+            player_id: b.player_id, name: b.name, team: inn.bowlingTeam,
+            value: b.dots,
+            detail: `${b.dots} dots in ${Math.floor(b.balls / 6)}.${b.balls % 6} ov`,
+            match_id: m.id, season_number: m.season_number,
+          });
+        }
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Highest career batting average (min innings). */
+export function bestBattingAverage(matches: MatchRow[], minInn = 3, limit = 10): IndEntry[] {
+  const map = new Map<string, { name: string; team: string; runs: number; outs: number; inn: number }>();
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bat).forEach((b: any) => {
+        if ((b.balls ?? 0) === 0 && (b.runs ?? 0) === 0) return;
+        const c = map.get(b.player_id) ?? { name: b.name, team: inn.battingTeam, runs: 0, outs: 0, inn: 0 };
+        c.runs += b.runs ?? 0; c.inn += 1; if (b.out) c.outs += 1;
+        map.set(b.player_id, c);
+      });
+    }
+  }
+  return [...map.entries()].filter(([, v]) => v.inn >= minInn).map(([id, v]) => ({
+    player_id: id, name: v.name, team: v.team,
+    value: +(v.runs / Math.max(1, v.outs)).toFixed(2),
+    detail: `Avg ${(v.runs / Math.max(1, v.outs)).toFixed(2)} (${v.runs}r in ${v.inn} inn, ${v.outs}× out)`,
+  })).sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
 export function bestBowlingFigures(matches: MatchRow[], limit = 10): IndEntry[] {
   const out: IndEntry[] = [];
   for (const m of matches) {
