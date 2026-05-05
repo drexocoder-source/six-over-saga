@@ -376,6 +376,8 @@ export default function Match() {
     const inn = engine.currentInnings === 1 ? engine.innings1 : engine.innings2!;
     const battingXI = engine.xi[inn.battingTeam];
     const wasPP = isPowerplayBall(engine, inn.legalBalls);
+    const strikerBefore = inn.strikerId;
+    const bowlerBefore = inn.bowlerId;
     const result = applyBall(engine, ev, battingXI);
     setEngine({ ...engine });
 
@@ -390,6 +392,18 @@ export default function Match() {
     else if (result.events.isWicket) setRecentBigEvent({ kind: "WICKET", text: "WICKET!! 🎯" });
     if (result.events.isFour || result.events.isSix || result.events.isWicket) {
       setTimeout(() => setRecentBigEvent(null), 1800);
+    }
+
+    // 🎉 Live celebration overlays (50/100, hat-trick, 5W, streaks, team milestones)
+    const celebs = detectCelebrations(engine, celebTrackerRef.current, {
+      isFour: result.events.isFour, isSix: result.events.isSix,
+      isWicket: result.events.isWicket, isExtra: result.events.isExtra,
+      strikerId: strikerBefore, bowlerId: bowlerBefore,
+    });
+    if (celebs.length) {
+      celebQueueRef.current.push(...celebs);
+      if (!celebration) setCelebration(celebQueueRef.current.shift() ?? null);
+      celebs.forEach(c => setCommentary(cm => [`✨ ${c.title} — ${c.subtitle ?? ""}`, ...cm]));
     }
 
     if (inn.done) {
