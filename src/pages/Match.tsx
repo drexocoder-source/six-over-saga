@@ -881,6 +881,12 @@ export default function Match() {
           </div>
         )}
 
+        {/* 🎉 Live celebration overlay (50/100, hat-trick, 5W, streaks, team milestones) */}
+        <CelebrationOverlay
+          event={celebration}
+          onClose={() => setCelebration(celebQueueRef.current.shift() ?? null)}
+        />
+
         {/* Match done banner */}
         {phase === "done" && (
           <Card className="p-6 gradient-card border-primary glow-primary text-center animate-scale-in">
