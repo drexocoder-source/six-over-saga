@@ -9,8 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles } from "lucide-react";
+import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles, Bot } from "lucide-react";
 import { toast } from "sonner";
+import ChairmanChat, { type ChairmanChatContext } from "@/components/ChairmanChat";
 
 const ROLES = ["BAT", "BOWL", "AR", "WK"] as const;
 
