@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateLeague, type League } from "@/lib/league";
 import { teamColor } from "@/lib/teams";
-import { seasonCycleFor } from "@/lib/seasonCycle";
+import { seasonCycleFor, retentionCost } from "@/lib/seasonCycle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
