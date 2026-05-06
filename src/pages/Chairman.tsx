@@ -20,6 +20,7 @@ export default function Chairman() {
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState<any[]>([]);
   const [customRecs, setCustomRecs] = useState<any[]>([]);
+  const [chatCtx, setChatCtx] = useState<ChairmanChatContext | null>(null);
 
   // Forms
   const [newTeam, setNewTeam] = useState({ id: "", shortName: "", fullName: "", color: "#e11d48" });
