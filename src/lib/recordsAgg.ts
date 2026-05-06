@@ -290,62 +290,238 @@ export interface Milestone {
 
 export function milestones(matches: MatchRow[]): Milestone[] {
   const out: Milestone[] = [];
-  let firstHundred = false, firstFifty = false, firstFiver = false, firstHattrick = false;
-  let firstSix = false, firstFour = false, firstDuck = false, firstWicket = false, firstMaiden = false;
-  let firstTeam200 = false, firstTeam100 = false, firstSuperOver = false, firstTie = false;
+  const flags = {
+    firstHundred: false, firstFifty: false, firstFiver: false, firstHattrick: false,
+    firstSix: false, firstFour: false, firstDuck: false, firstWicket: false, firstMaiden: false,
+    firstTeam200: false, firstTeam100: false, firstTeam150: false, firstTeam250: false,
+    firstSuperOver: false, firstTie: false, firstGoldenDuck: false, firstChasedDefend: false,
+    firstNailbiter: false, firstThirty: false, firstFortyFive: false, firstAllOut: false,
+    firstBigWin: false, firstSuperFifty: false, firstThreeSixesOver: false, firstHundredPlus: false,
+    firstUnbeaten: false, firstPair: false, firstThreeWk: false, firstFourWk: false,
+  };
   for (const m of matches.slice().sort((a, b) => (a.season_number ?? 0) - (b.season_number ?? 0) || a.match_number - b.match_number)) {
     for (const ik of ["innings1", "innings2"] as const) {
       const inn = m.scorecard?.[ik]; if (!inn) continue;
       Object.values(inn.bat as any).forEach((b: any) => {
-        if (!firstFour && (b.fours ?? 0) > 0) {
-          firstFour = true;
+        if (!flags.firstFour && (b.fours ?? 0) > 0) {
+          flags.firstFour = true;
           out.push({ label: "First Four", detail: `${b.name} pierced the field`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
         }
-        if (!firstFifty && (b.runs ?? 0) >= 50) {
-          firstFifty = true;
+        if (!flags.firstThirty && (b.runs ?? 0) >= 30) {
+          flags.firstThirty = true;
+          out.push({ label: "First 30+ Knock", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstFortyFive && (b.runs ?? 0) >= 45) {
+          flags.firstFortyFive = true;
+          out.push({ label: "First 45+ Knock", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstFifty && (b.runs ?? 0) >= 50) {
+          flags.firstFifty = true;
           out.push({ label: "First Fifty", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
         }
-        if (!firstHundred && (b.runs ?? 0) >= 100) {
-          firstHundred = true;
+        if (!flags.firstSuperFifty && (b.runs ?? 0) >= 75) {
+          flags.firstSuperFifty = true;
+          out.push({ label: "First 75+ Score", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstHundred && (b.runs ?? 0) >= 100) {
+          flags.firstHundred = true;
           out.push({ label: "First Century", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
         }
-        if (!firstSix && (b.sixes ?? 0) > 0) {
-          firstSix = true;
+        if (!flags.firstHundredPlus && (b.runs ?? 0) >= 125) {
+          flags.firstHundredPlus = true;
+          out.push({ label: "First 125+ Knock", detail: `${b.name} — ${b.runs} (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstSix && (b.sixes ?? 0) > 0) {
+          flags.firstSix = true;
           out.push({ label: "First Six", detail: `${b.name} cleared the rope`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
         }
-        if (!firstDuck && (b.runs ?? 0) === 0 && b.out && (b.balls ?? 0) > 0) {
-          firstDuck = true;
+        if (!flags.firstDuck && (b.runs ?? 0) === 0 && b.out && (b.balls ?? 0) > 0) {
+          flags.firstDuck = true;
           out.push({ label: "First Duck", detail: `${b.name} bagged a duck`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstGoldenDuck && (b.runs ?? 0) === 0 && b.out && (b.balls ?? 0) === 1) {
+          flags.firstGoldenDuck = true;
+          out.push({ label: "First Golden Duck", detail: `${b.name} — out first ball`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstUnbeaten && (b.runs ?? 0) >= 50 && !b.out) {
+          flags.firstUnbeaten = true;
+          out.push({ label: "First Unbeaten Fifty", detail: `${b.name} — ${b.runs}* (${b.balls})`, player_id: b.player_id, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
         }
       });
       Object.values(inn.bowl as any).forEach((b: any) => {
-        if (!firstWicket && (b.wickets ?? 0) > 0) {
-          firstWicket = true;
+        if (!flags.firstWicket && (b.wickets ?? 0) > 0) {
+          flags.firstWicket = true;
           out.push({ label: "First Wicket", detail: `${b.name} struck first`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
         }
-        if (!firstFiver && (b.wickets ?? 0) >= 5) {
-          firstFiver = true;
+        if (!flags.firstThreeWk && (b.wickets ?? 0) >= 3) {
+          flags.firstThreeWk = true;
+          out.push({ label: "First 3-Wicket Haul", detail: `${b.name} — ${b.wickets}/${b.runs}`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstFourWk && (b.wickets ?? 0) >= 4) {
+          flags.firstFourWk = true;
+          out.push({ label: "First 4-Wicket Haul", detail: `${b.name} — ${b.wickets}/${b.runs}`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
+        }
+        if (!flags.firstFiver && (b.wickets ?? 0) >= 5) {
+          flags.firstFiver = true;
           out.push({ label: "First Five-Wicket Haul", detail: `${b.name} — ${b.wickets}/${b.runs}`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
         }
-        if (!firstMaiden && (b.balls ?? 0) >= 6 && (b.runs ?? 0) === 0) {
-          firstMaiden = true;
+        if (!flags.firstMaiden && (b.balls ?? 0) >= 6 && (b.runs ?? 0) === 0) {
+          flags.firstMaiden = true;
           out.push({ label: "First Maiden Over", detail: `${b.name} — 6 dot balls`, player_id: b.player_id, team: inn.bowlingTeam, match_id: m.id, season_number: m.season_number });
         }
       });
-      if (!firstTeam100 && inn.runs >= 100) {
-        firstTeam100 = true;
+      if (!flags.firstTeam100 && inn.runs >= 100) {
+        flags.firstTeam100 = true;
         out.push({ label: "First 100+ Total", detail: `${inn.battingTeam} ${inn.runs}/${inn.wickets}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
       }
-      if (!firstTeam200 && inn.runs >= 200) {
-        firstTeam200 = true;
+      if (!flags.firstTeam150 && inn.runs >= 150) {
+        flags.firstTeam150 = true;
+        out.push({ label: "First 150+ Total", detail: `${inn.battingTeam} ${inn.runs}/${inn.wickets} vs ${inn.bowlingTeam}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+      }
+      if (!flags.firstTeam200 && inn.runs >= 200) {
+        flags.firstTeam200 = true;
         out.push({ label: "First 200+ Total", detail: `${inn.battingTeam} ${inn.runs}/${inn.wickets} vs ${inn.bowlingTeam}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
       }
+      if (!flags.firstTeam250 && inn.runs >= 250) {
+        flags.firstTeam250 = true;
+        out.push({ label: "First 250+ Total", detail: `${inn.battingTeam} ${inn.runs}/${inn.wickets} vs ${inn.bowlingTeam}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+      }
+      if (!flags.firstAllOut && (inn.wickets ?? 0) >= 10) {
+        flags.firstAllOut = true;
+        out.push({ label: "First All-Out", detail: `${inn.battingTeam} bundled out for ${inn.runs}`, team: inn.battingTeam, match_id: m.id, season_number: m.season_number });
+      }
     }
-    // First tie
-    if (!firstTie && m.scorecard?.innings1 && m.scorecard?.innings2 && m.scorecard.innings1.runs === m.scorecard.innings2.runs && !m.winner) {
-      firstTie = true;
-      out.push({ label: "First Tied Match", detail: `${m.team_a} vs ${m.team_b} — both finished on ${m.scorecard.innings1.runs}`, match_id: m.id, season_number: m.season_number });
+    // Match-level firsts
+    const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+    if (!flags.firstTie && i1 && i2 && i1.runs === i2.runs && !m.winner) {
+      flags.firstTie = true;
+      out.push({ label: "First Tied Match", detail: `${m.team_a} vs ${m.team_b} — both finished on ${i1.runs}`, match_id: m.id, season_number: m.season_number });
+    }
+    if (!flags.firstChasedDefend && i1 && i2 && m.winner === i2.battingTeam) {
+      flags.firstChasedDefend = true;
+      out.push({ label: "First Successful Chase", detail: `${i2.battingTeam} chased ${i1.runs + 1}`, team: i2.battingTeam, match_id: m.id, season_number: m.season_number });
+    }
+    if (!flags.firstNailbiter && i1 && i2 && Math.abs(i1.runs - i2.runs) <= 5 && m.winner) {
+      flags.firstNailbiter = true;
+      out.push({ label: "First Nail-biter", detail: `${m.winner} won by just ${Math.abs(i1.runs - i2.runs)} runs`, team: m.winner, match_id: m.id, season_number: m.season_number });
+    }
+    if (!flags.firstBigWin && i1 && i2 && Math.abs(i1.runs - i2.runs) >= 75 && m.winner) {
+      flags.firstBigWin = true;
+      out.push({ label: "First 75+ Run Thrashing", detail: `${m.winner} won by ${Math.abs(i1.runs - i2.runs)} runs`, team: m.winner, match_id: m.id, season_number: m.season_number });
     }
   }
   return out;
 }
+
+// ----- Streaks & extras records -----
+/** Most boundaries (4+6) by an individual in an innings. */
+export function mostBoundariesInnings(matches: MatchRow[], limit = 10): IndEntry[] {
+  const out: IndEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bat as any).forEach((b: any) => {
+        const total = (b.fours ?? 0) + (b.sixes ?? 0);
+        if (total <= 0) return;
+        out.push({
+          player_id: b.player_id, name: b.name, team: inn.battingTeam,
+          value: total,
+          detail: `${total} bdries — ${b.fours}×4 + ${b.sixes}×6 in ${b.runs}(${b.balls})`,
+          match_id: m.id, season_number: m.season_number,
+        });
+      });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Best career bowling average (min wickets). */
+export function bestBowlingAverage(matches: MatchRow[], minWk = 4, limit = 10): IndEntry[] {
+  const map = new Map<string, { name: string; team: string; runs: number; wkts: number }>();
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bowl as any).forEach((b: any) => {
+        const c = map.get(b.player_id) ?? { name: b.name, team: inn.bowlingTeam, runs: 0, wkts: 0 };
+        c.runs += b.runs ?? 0; c.wkts += b.wickets ?? 0;
+        map.set(b.player_id, c);
+      });
+    }
+  }
+  return [...map.entries()].filter(([, v]) => v.wkts >= minWk).map(([id, v]) => ({
+    player_id: id, name: v.name, team: v.team,
+    value: +(v.runs / v.wkts).toFixed(2),
+    detail: `Avg ${(v.runs / v.wkts).toFixed(2)} (${v.wkts} wk in ${v.runs} runs)`,
+  })).sort((a, b) => a.value - b.value).slice(0, limit);
+}
+
+/** Most maidens by a bowler in season scope. */
+export function mostMaidens(matches: MatchRow[], limit = 10): IndEntry[] {
+  const map = new Map<string, { name: string; team: string; maidens: number }>();
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      Object.values(inn.bowl as any).forEach((b: any) => {
+        if (!b.maidens) return;
+        const c = map.get(b.player_id) ?? { name: b.name, team: inn.bowlingTeam, maidens: 0 };
+        c.maidens += b.maidens;
+        map.set(b.player_id, c);
+      });
+    }
+  }
+  return [...map.entries()].map(([id, v]) => ({
+    player_id: id, name: v.name, team: v.team, value: v.maidens, detail: `${v.maidens} maiden over${v.maidens === 1 ? "" : "s"}`,
+  })).sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Biggest win margin by runs. */
+export function biggestWinMargin(matches: MatchRow[], limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+    if (!i1 || !i2 || !m.winner) continue;
+    if (m.winner === i1.battingTeam) {
+      out.push({ team: m.winner, value: i1.runs - i2.runs, detail: `won by ${i1.runs - i2.runs} runs`, vs: i2.battingTeam, match_id: m.id, season_number: m.season_number });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Closest finishes (smallest run margin). */
+export function closestFinishes(matches: MatchRow[], limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+    if (!i1 || !i2 || !m.winner) continue;
+    const margin = Math.abs(i1.runs - i2.runs);
+    out.push({ team: m.winner, value: margin, detail: `${m.winner} won by ${margin} run${margin === 1 ? "" : "s"}`, vs: m.winner === m.team_a ? m.team_b : m.team_a, match_id: m.id, season_number: m.season_number });
+  }
+  return out.sort((a, b) => a.value - b.value).slice(0, limit);
+}
+
+/** Highest chase totals successfully achieved. */
+export function highestSuccessfulChases(matches: MatchRow[], limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+    if (!i1 || !i2 || !m.winner) continue;
+    if (m.winner === i2.battingTeam) {
+      out.push({ team: i2.battingTeam, value: i2.runs, detail: `chased ${i1.runs + 1} (made ${i2.runs}/${i2.wickets})`, vs: i1.battingTeam, match_id: m.id, season_number: m.season_number });
+    }
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Lowest defended totals — team batted first, won. */
+export function lowestDefendedTotals(matches: MatchRow[], limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+    if (!i1 || !i2 || !m.winner) continue;
+    if (m.winner === i1.battingTeam) {
+      out.push({ team: i1.battingTeam, value: i1.runs, detail: `defended ${i1.runs} vs ${i2.battingTeam} (${i2.runs}/${i2.wickets})`, vs: i2.battingTeam, match_id: m.id, season_number: m.season_number });
+    }
+  }
+  return out.sort((a, b) => a.value - b.value).slice(0, limit);
+}
+

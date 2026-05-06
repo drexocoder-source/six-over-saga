@@ -9,8 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles } from "lucide-react";
+import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles, Bot } from "lucide-react";
 import { toast } from "sonner";
+import ChairmanChat, { type ChairmanChatContext } from "@/components/ChairmanChat";
 
 const ROLES = ["BAT", "BOWL", "AR", "WK"] as const;
 
@@ -19,6 +20,7 @@ export default function Chairman() {
   const [loading, setLoading] = useState(true);
   const [players, setPlayers] = useState<any[]>([]);
   const [customRecs, setCustomRecs] = useState<any[]>([]);
+  const [chatCtx, setChatCtx] = useState<ChairmanChatContext | null>(null);
 
   // Forms
   const [newTeam, setNewTeam] = useState({ id: "", shortName: "", fullName: "", color: "#e11d48" });
@@ -30,12 +32,19 @@ export default function Chairman() {
     const lg = await getOrCreateLeague();
     setLeague(lg);
     setNewRule({ powerplayEnabled: true, powerplayOvers: 4, overseasMaxXI: 4, impactPlayerEnabled: true, scoreProfile: "200+", ...lg.settings });
-    const [{ data: pl }, { data: cr }] = await Promise.all([
+    const [{ data: pl }, { data: cr }, { data: seasons }] = await Promise.all([
       supabase.from("players").select("*").eq("league_id", lg.id).order("rating", { ascending: false }),
       supabase.from("custom_records").select("*").eq("league_id", lg.id).order("created_at", { ascending: false }),
+      supabase.from("seasons").select("*").eq("league_id", lg.id).order("season_number", { ascending: false }).limit(1),
     ]);
     setPlayers(pl ?? []);
     setCustomRecs(cr ?? []);
+    const cur = seasons?.[0];
+    setChatCtx({
+      league: { name: lg.name, teamsCount: lg.teams.length, settings: lg.settings },
+      season: cur ? { number: cur.season_number, year: cur.year, status: cur.status } : undefined,
+      topPlayers: (pl ?? []).slice(0, 20).map((p: any) => ({ name: p.name, rating: p.rating, role: p.role })),
+    });
     setLoading(false);
   };
 
@@ -135,13 +144,19 @@ export default function Chairman() {
         </Badge>
       </div>
 
-      <Tabs defaultValue="teams">
+      <Tabs defaultValue="chat">
         <TabsList className="bg-secondary/40">
+          <TabsTrigger value="chat"><Bot className="w-3.5 h-3.5 mr-1"/>AI Chat</TabsTrigger>
           <TabsTrigger value="teams"><Users className="w-3.5 h-3.5 mr-1"/>Teams</TabsTrigger>
           <TabsTrigger value="players"><UserPlus className="w-3.5 h-3.5 mr-1"/>Player Pool</TabsTrigger>
           <TabsTrigger value="rules"><Settings2 className="w-3.5 h-3.5 mr-1"/>Rules</TabsTrigger>
           <TabsTrigger value="records"><Trophy className="w-3.5 h-3.5 mr-1"/>Custom Records</TabsTrigger>
         </TabsList>
+
+        {/* AI CHAT */}
+        <TabsContent value="chat" className="mt-4">
+          {chatCtx ? <ChairmanChat league={league} context={chatCtx}/> : <div className="text-sm text-muted-foreground">Loading context…</div>}
+        </TabsContent>
 
         {/* TEAMS */}
         <TabsContent value="teams" className="space-y-4 mt-4">

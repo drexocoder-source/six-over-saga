@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateLeague, type League } from "@/lib/league";
 import { teamColor } from "@/lib/teams";
-import { seasonCycleFor } from "@/lib/seasonCycle";
+import { seasonCycleFor, retentionCost } from "@/lib/seasonCycle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,11 +32,7 @@ export default function Retention() {
       setSeason(cur);
       setPrevSeason(prev);
       const cy = seasonCycleFor(cur.season_number);
-      if (cy.type === "mega") {
-        toast.info("Mega auction — no retentions, fresh start!");
-        nav("/auction");
-        return;
-      }
+      // Mega still allows retentions from S2 onward (IPL style)
       if (!prev) { toast.info("No previous season to retain from"); nav("/auction"); return; }
       // Load previous season's squads
       const { data: prevSquads } = await supabase
@@ -69,21 +65,32 @@ export default function Retention() {
     });
   };
 
-  const totalRetainedCost = (teamId: string) => {
+  /** Returns ordered retention list for a team with computed bracket cost. */
+  function retentionLines(teamId: string) {
+    if (!cycle) return [] as { s: any; cost: number; uncapped: boolean }[];
     const set = retentions[teamId] ?? new Set();
-    return (squads[teamId] ?? []).filter(s => set.has(s.player_id)).reduce((a, s) => a + Number(s.price), 0);
-  };
+    const picks = (squads[teamId] ?? []).filter(s => set.has(s.player_id));
+    // Capped (rating ≥ 75) first, ordered by rating desc — cheapest premium first
+    const capped = picks.filter(p => (p.player.rating ?? 0) >= 75).sort((a, b) => b.player.rating - a.player.rating);
+    const unc = picks.filter(p => (p.player.rating ?? 0) < 75);
+    const out: { s: any; cost: number; uncapped: boolean }[] = [];
+    capped.forEach((s, i) => out.push({ s, cost: retentionCost(cycle, i + 1, false), uncapped: false }));
+    unc.forEach((s) => out.push({ s, cost: cycle.retention.uncappedCost, uncapped: true }));
+    return out;
+  }
+
+  const totalRetainedCost = (teamId: string) =>
+    retentionLines(teamId).reduce((a, l) => a + l.cost, 0);
 
   async function confirmRetentions() {
     if (!season || !league || !cycle) return;
-    // Insert retained squads into the new season
     const rows: any[] = [];
     for (const tid of Object.keys(retentions)) {
-      const set = retentions[tid];
-      (squads[tid] ?? []).filter(s => set.has(s.player_id)).forEach(s => {
+      const lines = retentionLines(tid);
+      lines.forEach(({ s, cost }) => {
         rows.push({
           season_id: season.id, team_id: tid, player_id: s.player_id,
-          price: Number(s.price), retained: true, retention_price: Number(s.price),
+          price: cost, retained: true, retention_price: cost,
           is_captain: s.is_captain, is_vice_captain: s.is_vice_captain,
         });
       });
@@ -92,7 +99,7 @@ export default function Retention() {
       const { error } = await supabase.from("squads").insert(rows);
       if (error) { toast.error("Failed to save retentions"); return; }
     }
-    await supabase.from("seasons").update({ auction_type: "mini", purse: cycle.purse }).eq("id", season.id);
+    await supabase.from("seasons").update({ auction_type: cycle.type, purse: cycle.purse }).eq("id", season.id);
     toast.success(`✅ Retained ${rows.length} players. Off to the auction!`);
     nav("/auction");
   }
@@ -102,33 +109,49 @@ export default function Retention() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {season.season_number} • RETENTION WINDOW</div>
-        <h1 className="font-display text-4xl tracking-wider">Mini Auction Retentions</h1>
+        <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {season.season_number} • RETENTION WINDOW · {cycle?.type.toUpperCase()} AUCTION</div>
+        <h1 className="font-display text-4xl tracking-wider">{cycle?.type === "mega" ? "Mega" : "Mini"} Auction Retentions</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Pick up to <b className="text-primary">{cycle?.maxRetentions}</b> players per team. Retained at original purchase price.
-          Mini purse: <b className="text-primary">₹{cycle?.purse}cr</b> (minus retained costs).
+          Pick up to <b className="text-primary">{cycle?.maxRetentions}</b> per team. Total purse: <b className="text-primary">₹{cycle?.purse}cr</b> · costs <b>deducted from auction purse</b> (IPL style).
         </p>
+        {cycle && (
+          <div className="mt-3 grid grid-cols-2 md:grid-cols-6 gap-2 text-[11px]">
+            {cycle.retention.costs.map((c, i) => (
+              <div key={i} className="px-2 py-1.5 rounded bg-secondary/40 border border-border/40">
+                <span className="text-muted-foreground">Capped #{i + 1}</span>
+                <div className="font-mono font-bold text-primary">₹{c}cr</div>
+              </div>
+            ))}
+            <div className="px-2 py-1.5 rounded bg-secondary/40 border border-border/40">
+              <span className="text-muted-foreground">Uncapped (&lt;75 ⭐)</span>
+              <div className="font-mono font-bold text-primary">₹{cycle.retention.uncappedCost}cr</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {Object.entries(squads).map(([tid, sq]) => {
-          const retCount = retentions[tid]?.size ?? 0;
-          const retCost = totalRetainedCost(tid);
+          const lines = retentionLines(tid);
+          const retCount = lines.length;
+          const retCost = lines.reduce((a, l) => a + l.cost, 0);
           const remainingPurse = (cycle?.purse ?? 50) - retCost;
+          const costByPlayer = new Map(lines.map(l => [l.s.player_id, l]));
           return (
             <Card key={tid} className="p-4 gradient-card border-border/60 relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1" style={{ background: teamColor(tid, league.teams) }} />
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <div className="font-display text-2xl tracking-wider" style={{ color: teamColor(tid, league.teams) }}>{tid}</div>
                 <div className="text-xs">
                   <span className="text-muted-foreground">Retaining </span><b className="text-primary">{retCount}/{cycle?.maxRetentions}</b>
                   <span className="text-muted-foreground"> · Cost </span><b className="text-primary">₹{retCost.toFixed(1)}cr</b>
-                  <span className="text-muted-foreground"> · Auction purse </span><b className={remainingPurse < 5 ? "text-destructive" : "text-primary"}>₹{remainingPurse.toFixed(1)}cr</b>
+                  <span className="text-muted-foreground"> · Auction purse </span><b className={remainingPurse < 10 ? "text-destructive" : "text-primary"}>₹{remainingPurse.toFixed(1)}cr</b>
                 </div>
               </div>
               <div className="space-y-1">
                 {sq.map(s => {
                   const checked = retentions[tid]?.has(s.player_id);
+                  const line = costByPlayer.get(s.player_id);
                   return (
                     <button
                       key={s.player_id}
@@ -141,7 +164,11 @@ export default function Retention() {
                       <span className="flex-1 text-left truncate">{s.player.name}</span>
                       <Badge variant="outline" className="text-[9px]">{s.player.role}</Badge>
                       <span className="font-mono text-primary">⭐{s.player.rating}</span>
-                      <span className="font-mono text-muted-foreground">₹{Number(s.price).toFixed(1)}</span>
+                      {checked && line ? (
+                        <span className={`font-mono font-bold ${line.uncapped ? "text-emerald-400" : "text-amber-400"}`}>−₹{line.cost}cr</span>
+                      ) : (
+                        <span className="font-mono text-muted-foreground/60">~₹{Number(s.price).toFixed(1)}</span>
+                      )}
                       {checked && <Trophy className="w-3 h-3 text-primary" />}
                     </button>
                   );
