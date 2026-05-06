@@ -144,13 +144,19 @@ export default function Chairman() {
         </Badge>
       </div>
 
-      <Tabs defaultValue="teams">
+      <Tabs defaultValue="chat">
         <TabsList className="bg-secondary/40">
+          <TabsTrigger value="chat"><Bot className="w-3.5 h-3.5 mr-1"/>AI Chat</TabsTrigger>
           <TabsTrigger value="teams"><Users className="w-3.5 h-3.5 mr-1"/>Teams</TabsTrigger>
           <TabsTrigger value="players"><UserPlus className="w-3.5 h-3.5 mr-1"/>Player Pool</TabsTrigger>
           <TabsTrigger value="rules"><Settings2 className="w-3.5 h-3.5 mr-1"/>Rules</TabsTrigger>
           <TabsTrigger value="records"><Trophy className="w-3.5 h-3.5 mr-1"/>Custom Records</TabsTrigger>
         </TabsList>
+
+        {/* AI CHAT */}
+        <TabsContent value="chat" className="mt-4">
+          {chatCtx ? <ChairmanChat league={league} context={chatCtx}/> : <div className="text-sm text-muted-foreground">Loading context…</div>}
+        </TabsContent>
 
         {/* TEAMS */}
         <TabsContent value="teams" className="space-y-4 mt-4">
