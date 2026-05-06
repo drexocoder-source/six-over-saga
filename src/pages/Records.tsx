@@ -5,6 +5,8 @@ import {
   loadAllDoneMatches, topBatScores, topBest, bestBowlingFigures,
   teamHighestTotals, teamLowestTotals, teamBestPowerplay, teamMostBoundaries,
   fastestMilestone, bestStrikeRateInnings, bestEconomySpell, mostDotsInnings, bestBattingAverage,
+  mostBoundariesInnings, bestBowlingAverage, mostMaidens,
+  biggestWinMargin, closestFinishes, highestSuccessfulChases, lowestDefendedTotals,
   milestones, type MatchRow, type IndEntry, type TeamEntry, type Milestone,
 } from "@/lib/recordsAgg";
 import { Card } from "@/components/ui/card";
