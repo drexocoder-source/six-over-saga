@@ -185,6 +185,9 @@ function IndividualView({ matches, league }: { matches: MatchRow[]; league: Leag
   const bestEcon = bestEconomySpell(matches, 2, 5);
   const dots = mostDotsInnings(matches, 5);
   const avg = bestBattingAverage(matches, 3, 5);
+  const bdInn = mostBoundariesInnings(matches, 5);
+  const bowlAvg = bestBowlingAverage(matches, 4, 5);
+  const maids = mostMaidens(matches, 5);
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <RecordCard title="Highest Individual Score" desc="Best single-innings batting performance." emoji="🏏" entries={hs.map(e => indRow(e, league))}/>
@@ -193,10 +196,13 @@ function IndividualView({ matches, league }: { matches: MatchRow[]; league: Leag
       <RecordCard title="Best Strike Rate (Innings)" desc="Min 10 balls faced." emoji="⚡" entries={bestSR.map(e => indRow(e, league))}/>
       <RecordCard title="Fastest Fifty" desc="Quickest 50 by balls faced." emoji="🚀" entries={fastest50.map(e => indRow(e, league))}/>
       <RecordCard title="Fastest Hundred" desc="Quickest 100 by balls faced." emoji="💯" entries={fastest100.map(e => indRow(e, league))}/>
+      <RecordCard title="Most Boundaries (Innings)" desc="Most 4s + 6s combined in one knock." emoji="🎆" entries={bdInn.map(e => indRow(e, league))}/>
       <RecordCard title="Most Wickets" desc="Aggregate wickets in this scope." emoji="🎯" entries={wkts.map(e => indRow(e, league))}/>
       <RecordCard title="Best Bowling Figures" desc="Best wickets/runs in a single innings." emoji="🔥" entries={bbi.map(e => indRow(e, league))}/>
+      <RecordCard title="Best Bowling Average" desc="Career avg, min 4 wickets." emoji="🩺" entries={bowlAvg.map(e => indRow(e, league))}/>
       <RecordCard title="Best Economy Spell" desc="Min 2 overs in a single innings." emoji="🛡️" entries={bestEcon.map(e => indRow(e, league))}/>
-      <RecordCard title="Most Dot Balls (Spell)" desc="Most dots bowled in one innings." emoji="🚫" entries={dots.map(e => indRow(e, league))}/>
+      <RecordCard title="Most Maiden Overs" desc="Aggregate maidens bowled." emoji="🚫" entries={maids.map(e => indRow(e, league))}/>
+      <RecordCard title="Most Dot Balls (Spell)" desc="Most dots bowled in one innings." emoji="⏸️" entries={dots.map(e => indRow(e, league))}/>
       <RecordCard title="Most 100s" desc="Centuries scored." emoji="💯" entries={hundreds.map(e => indRow(e, league))}/>
       <RecordCard title="Most 50s" desc="Fifty-plus scores (excludes hundreds)." emoji="5️⃣0️⃣" entries={fifties.map(e => indRow(e, league))}/>
       <RecordCard title="Most Sixes" desc="Aggregate 6s smashed." emoji="🚀" entries={sixes.map(e => indRow(e, league))}/>
