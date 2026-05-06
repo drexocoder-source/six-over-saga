@@ -62,11 +62,21 @@ export default function Schedule() {
     const tbl = await computePointsTable(s.id, lg.teams.map(t=>t.id), lg.settings.oversPerInnings);
     setTable(tbl);
 
-    // If league done, schedule the IPL-style playoff bracket
-    const leagueMatches = ((existing && existing.length) ? existing : (await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number")).data ?? [])
-      .filter((m: any) => m.stage === "league");
-    const leagueDone = leagueMatches.length > 0 && leagueMatches.every((m: any) => m.status === "done");
-    if (leagueDone && tbl.length >= 4) {
+    // Top-4 IPL playoffs trigger: if every team has played ≥14 done matches → start bracket
+    // even if extra fixtures remain in the schedule. (No regen — we just lock standings.)
+    const allMatches = (existing && existing.length) ? existing
+      : (await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number")).data ?? [];
+    const leagueMatches = allMatches.filter((m: any) => m.stage === "league");
+    const doneByTeam: Record<string, number> = {};
+    leagueMatches.filter((m: any) => m.status === "done").forEach((m: any) => {
+      doneByTeam[m.team_a] = (doneByTeam[m.team_a] ?? 0) + 1;
+      doneByTeam[m.team_b] = (doneByTeam[m.team_b] ?? 0) + 1;
+    });
+    const teamIds = lg.teams.map(t => t.id);
+    const minDone = Math.min(...teamIds.map(id => doneByTeam[id] ?? 0));
+    const everyoneDoneAll = leagueMatches.length > 0 && leagueMatches.every((m: any) => m.status === "done");
+    const top4Locked = teamIds.length >= 4 && minDone >= 14;
+    if ((top4Locked || everyoneDoneAll) && tbl.length >= 4) {
       await ensurePlayoffsScheduled(s.id, tbl);
       await wirePlayoffDependencies(s.id);
       const { data: fresh } = await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number");
