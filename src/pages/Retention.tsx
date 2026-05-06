@@ -32,11 +32,7 @@ export default function Retention() {
       setSeason(cur);
       setPrevSeason(prev);
       const cy = seasonCycleFor(cur.season_number);
-      if (cy.type === "mega") {
-        toast.info("Mega auction — no retentions, fresh start!");
-        nav("/auction");
-        return;
-      }
+      // Mega still allows retentions from S2 onward (IPL style)
       if (!prev) { toast.info("No previous season to retain from"); nav("/auction"); return; }
       // Load previous season's squads
       const { data: prevSquads } = await supabase
@@ -69,10 +65,22 @@ export default function Retention() {
     });
   };
 
-  const totalRetainedCost = (teamId: string) => {
+  /** Returns ordered retention list for a team with computed bracket cost. */
+  function retentionLines(teamId: string) {
+    if (!cycle) return [] as { s: any; cost: number; uncapped: boolean }[];
     const set = retentions[teamId] ?? new Set();
-    return (squads[teamId] ?? []).filter(s => set.has(s.player_id)).reduce((a, s) => a + Number(s.price), 0);
-  };
+    const picks = (squads[teamId] ?? []).filter(s => set.has(s.player_id));
+    // Capped (rating ≥ 75) first, ordered by rating desc — cheapest premium first
+    const capped = picks.filter(p => (p.player.rating ?? 0) >= 75).sort((a, b) => b.player.rating - a.player.rating);
+    const unc = picks.filter(p => (p.player.rating ?? 0) < 75);
+    const out: { s: any; cost: number; uncapped: boolean }[] = [];
+    capped.forEach((s, i) => out.push({ s, cost: retentionCost(cycle, i + 1, false), uncapped: false }));
+    unc.forEach((s) => out.push({ s, cost: cycle.retention.uncappedCost, uncapped: true }));
+    return out;
+  }
+
+  const totalRetainedCost = (teamId: string) =>
+    retentionLines(teamId).reduce((a, l) => a + l.cost, 0);
 
   async function confirmRetentions() {
     if (!season || !league || !cycle) return;
