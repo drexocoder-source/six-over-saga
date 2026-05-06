@@ -32,12 +32,19 @@ export default function Chairman() {
     const lg = await getOrCreateLeague();
     setLeague(lg);
     setNewRule({ powerplayEnabled: true, powerplayOvers: 4, overseasMaxXI: 4, impactPlayerEnabled: true, scoreProfile: "200+", ...lg.settings });
-    const [{ data: pl }, { data: cr }] = await Promise.all([
+    const [{ data: pl }, { data: cr }, { data: seasons }] = await Promise.all([
       supabase.from("players").select("*").eq("league_id", lg.id).order("rating", { ascending: false }),
       supabase.from("custom_records").select("*").eq("league_id", lg.id).order("created_at", { ascending: false }),
+      supabase.from("seasons").select("*").eq("league_id", lg.id).order("season_number", { ascending: false }).limit(1),
     ]);
     setPlayers(pl ?? []);
     setCustomRecs(cr ?? []);
+    const cur = seasons?.[0];
+    setChatCtx({
+      league: { name: lg.name, teamsCount: lg.teams.length, settings: lg.settings },
+      season: cur ? { number: cur.season_number, year: cur.year, status: cur.status } : undefined,
+      topPlayers: (pl ?? []).slice(0, 20).map((p: any) => ({ name: p.name, rating: p.rating, role: p.role })),
+    });
     setLoading(false);
   };
 
