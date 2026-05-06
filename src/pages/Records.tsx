@@ -142,12 +142,20 @@ function TeamView({ matches, league }: { matches: MatchRow[]; league: League }) 
   const low = teamLowestTotals(matches, 5);
   const pp = teamBestPowerplay(matches, league.settings.powerplayOvers ?? 6, 5);
   const bdry = teamMostBoundaries(matches, 5);
+  const big = biggestWinMargin(matches, 5);
+  const close = closestFinishes(matches, 5);
+  const chases = highestSuccessfulChases(matches, 5);
+  const defends = lowestDefendedTotals(matches, 5);
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <RecordCard title="Highest Team Totals" desc="Largest single-innings totals." emoji="🛡️" entries={high.map(t => teamRow(t, league))}/>
       <RecordCard title="Lowest Team Totals" desc="Smallest completed innings totals." emoji="🥶" entries={low.map(t => teamRow(t, league))}/>
       <RecordCard title="Best Powerplay" desc={`Most runs in first ${league.settings.powerplayOvers ?? 6} overs.`} emoji="⚡" entries={pp.map(t => teamRow(t, league))}/>
       <RecordCard title="Most Boundaries (Innings)" desc="Most 4s + 6s combined in one innings." emoji="🎯" entries={bdry.map(t => teamRow(t, league))}/>
+      <RecordCard title="Biggest Win (Runs)" desc="Largest victory by runs (batting first)." emoji="💪" entries={big.map(t => teamRow(t, league))}/>
+      <RecordCard title="Closest Finishes" desc="Smallest run margins." emoji="😬" entries={close.map(t => teamRow(t, league))}/>
+      <RecordCard title="Highest Successful Chase" desc="Most runs chased and won." emoji="🏃" entries={chases.map(t => teamRow(t, league))}/>
+      <RecordCard title="Lowest Defended Total" desc="Smallest first-innings score that won." emoji="🛡️" entries={defends.map(t => teamRow(t, league))}/>
     </div>
   );
 }
