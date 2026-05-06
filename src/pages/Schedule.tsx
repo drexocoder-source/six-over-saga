@@ -126,7 +126,7 @@ export default function Schedule() {
   const leagueFixtures = matches.filter(m => m.stage === "league");
   const perTeamCount: Record<string, number> = {};
   leagueFixtures.forEach(m => { perTeamCount[m.team_a] = (perTeamCount[m.team_a] ?? 0) + 1; perTeamCount[m.team_b] = (perTeamCount[m.team_b] ?? 0) + 1; });
-  const matchesPerTeam = Math.max(14, ...Object.values(perTeamCount));
+  const matchesPerTeam = 14;
   const qual = computeQualification(table, matchesPerTeam, 4);
 
   return (
