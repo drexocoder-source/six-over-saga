@@ -157,9 +157,10 @@ export default function Match() {
   // AI Sim state
   const [aiStyle, setAiStyle] = useState<CommentaryStyle>("normal");
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("normal");
+  const quickSim = params.get("auto") === "1" || params.get("sim") === "1";
   const [autoPlay, setAutoPlay] = useState(false);
-  const [autoMatch, setAutoMatch] = useState(false); // Full AI match — no manual prompts
-  const [aiSpeedMs, setAiSpeedMs] = useState<number>(1500); // user-adjustable ball cadence
+  const [autoMatch, setAutoMatch] = useState(quickSim); // Full AI match — no manual prompts
+  const [aiSpeedMs, setAiSpeedMs] = useState<number>(quickSim ? 40 : 1500); // user-adjustable ball cadence
   const [matchProfile, setMatchProfile] = useState<ScoreProfile | null>(null);
   const [potmName, setPotmName] = useState<string>("");
 
