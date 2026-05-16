@@ -297,3 +297,175 @@ function RecordCard({ title, desc, emoji, entries }: { title: string; desc: stri
     </Card>
   );
 }
+
+// ----------------- TEAMS OVERALL -----------------
+function OverallTeamsView({ matches, league }: { matches: MatchRow[]; league: League }) {
+  const rows = computeTeamOverall(matches, league.teams.map(t => t.id));
+  if (!rows.length) return <Card className="p-8 text-center text-muted-foreground gradient-card border-border/60">No data yet.</Card>;
+  return (
+    <Card className="gradient-card border-border/60 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="text-[10px] uppercase tracking-widest text-muted-foreground bg-secondary/30">
+            <tr>
+              <th className="text-left px-3 py-2">Team</th>
+              <th className="text-center px-2 py-2">M</th>
+              <th className="text-center px-2 py-2">W</th>
+              <th className="text-center px-2 py-2">L</th>
+              <th className="text-center px-2 py-2">T</th>
+              <th className="text-center px-2 py-2 font-bold text-primary">Win%</th>
+              <th className="text-center px-2 py-2">Avg</th>
+              <th className="text-center px-2 py-2">Hi</th>
+              <th className="text-center px-2 py-2">Lo</th>
+              <th className="text-center px-2 py-2">200s</th>
+              <th className="text-center px-2 py-2">150s</th>
+              <th className="text-center px-2 py-2">4s</th>
+              <th className="text-center px-2 py-2">6s</th>
+              <th className="text-center px-2 py-2">Streak</th>
+              <th className="text-center px-2 py-2">Home%</th>
+              <th className="text-center px-2 py-2">Away%</th>
+              <th className="text-center px-2 py-2">PO</th>
+              <th className="text-center px-2 py-2">Finals</th>
+              <th className="text-center px-2 py-2">🏆</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.team} className="border-t border-border/40 hover:bg-secondary/20">
+                <td className="px-3 py-2 font-display text-base" style={{ color: teamColor(r.team, league.teams) }}>{r.team}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.matches}</td>
+                <td className="text-center px-2 py-2 font-mono text-[hsl(var(--boundary))]">{r.wins}</td>
+                <td className="text-center px-2 py-2 font-mono text-[hsl(var(--wicket))]">{r.losses}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.ties}</td>
+                <td className="text-center px-2 py-2 font-mono font-bold text-primary">{r.winPct}%</td>
+                <td className="text-center px-2 py-2 font-mono">{r.avgScore}</td>
+                <td className="text-center px-2 py-2 font-mono" title={r.highestDetail}>{r.highestScore}</td>
+                <td className="text-center px-2 py-2 font-mono" title={r.lowestDetail}>{r.lowestScore || "—"}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.total200s}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.total150s}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.totalFours}</td>
+                <td className="text-center px-2 py-2 font-mono text-[hsl(var(--six))]">{r.totalSixes}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.bestStreak}W</td>
+                <td className="text-center px-2 py-2 font-mono">{r.homeWinPct}%</td>
+                <td className="text-center px-2 py-2 font-mono">{r.awayWinPct}%</td>
+                <td className="text-center px-2 py-2 font-mono">{r.playoffApps}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.finalsPlayed}</td>
+                <td className="text-center px-2 py-2 font-mono text-primary font-bold">{r.titles || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-3 py-2 text-[10px] text-muted-foreground italic border-t border-border/30">
+        Hover Hi/Lo for the scorecard context. PO = Playoff Appearances.
+      </div>
+    </Card>
+  );
+}
+
+// ----------------- CAPTAINCY -----------------
+function CaptaincyView({ matches, league }: { matches: MatchRow[]; league: League }) {
+  const [rows, setRows] = useState<CaptaincyRow[] | null>(null);
+  useEffect(() => { (async () => setRows(await computeCaptaincy(league.id, matches)))(); }, [league.id, matches]);
+  if (!rows) return <Card className="p-8 text-center text-muted-foreground gradient-card border-border/60">Loading…</Card>;
+  if (!rows.length) return <Card className="p-8 text-center text-muted-foreground gradient-card border-border/60">No captaincy data yet.</Card>;
+  return (
+    <Card className="gradient-card border-border/60 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="text-[10px] uppercase tracking-widest text-muted-foreground bg-secondary/30">
+            <tr>
+              <th className="text-left px-3 py-2">Captain</th>
+              <th className="text-left px-2 py-2">Team</th>
+              <th className="text-center px-2 py-2">M</th>
+              <th className="text-center px-2 py-2">W</th>
+              <th className="text-center px-2 py-2">L</th>
+              <th className="text-center px-2 py-2">T</th>
+              <th className="text-center px-2 py-2 font-bold text-primary">Win%</th>
+              <th className="text-center px-2 py-2">Best Streak</th>
+              <th className="text-center px-2 py-2">Finals</th>
+              <th className="text-center px-2 py-2">🏆 Titles</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.player_id} className="border-t border-border/40 hover:bg-secondary/20">
+                <td className="px-3 py-2 font-medium">{r.name}</td>
+                <td className="px-2 py-2" style={{ color: teamColor(r.team, league.teams) }}>{r.team}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.matches}</td>
+                <td className="text-center px-2 py-2 font-mono text-[hsl(var(--boundary))]">{r.wins}</td>
+                <td className="text-center px-2 py-2 font-mono text-[hsl(var(--wicket))]">{r.losses}</td>
+                <td className="text-center px-2 py-2 font-mono">{r.ties}</td>
+                <td className="text-center px-2 py-2 font-mono font-bold text-primary">{r.winPct}%</td>
+                <td className="text-center px-2 py-2 font-mono">{r.bestStreak}W</td>
+                <td className="text-center px-2 py-2 font-mono">{r.finals}</td>
+                <td className="text-center px-2 py-2 font-mono text-primary font-bold">{r.titles || "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+// ----------------- H2H -----------------
+function H2HView({ matches, league }: { matches: MatchRow[]; league: League }) {
+  const cells = computeH2H(matches, league.teams.map(t => t.id));
+  if (!cells.length) return <Card className="p-8 text-center text-muted-foreground gradient-card border-border/60">No head-to-head data yet.</Card>;
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {cells.map(c => {
+        const aWin = c.aWins / Math.max(1, c.played) * 100;
+        const bWin = c.bWins / Math.max(1, c.played) * 100;
+        return (
+          <Card key={`${c.teamA}-${c.teamB}`} className="p-4 gradient-card border-border/60">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-display text-lg" style={{ color: teamColor(c.teamA, league.teams) }}>{c.teamA}</div>
+              <div className="text-[10px] text-muted-foreground">{c.played} match{c.played === 1 ? "" : "es"}</div>
+              <div className="font-display text-lg" style={{ color: teamColor(c.teamB, league.teams) }}>{c.teamB}</div>
+            </div>
+            <div className="flex items-center gap-1 h-3 rounded-full overflow-hidden bg-secondary/40 mb-2">
+              <div className="h-full" style={{ width: `${aWin}%`, background: teamColor(c.teamA, league.teams) }}/>
+              {c.ties > 0 && <div className="h-full bg-muted-foreground/40" style={{ width: `${(c.ties/c.played)*100}%` }}/>}
+              <div className="h-full" style={{ width: `${bWin}%`, background: teamColor(c.teamB, league.teams) }}/>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+              <div><div className="font-mono font-bold text-base">{c.aWins}</div><div className="text-muted-foreground text-[9px]">Wins</div></div>
+              <div><div className="font-mono font-bold text-base">{c.ties}</div><div className="text-muted-foreground text-[9px]">Ties</div></div>
+              <div><div className="font-mono font-bold text-base">{c.bWins}</div><div className="text-muted-foreground text-[9px]">Wins</div></div>
+            </div>
+            <div className="mt-2 text-[10px] text-muted-foreground flex justify-between">
+              <span>Avg {c.aRunsAvg}</span>
+              <span>Avg {c.bRunsAvg}</span>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+// ----------------- ADVANCED -----------------
+function AdvancedView({ matches, league }: { matches: MatchRow[]; league: League }) {
+  const rows = computeAdvanced(matches, 30);
+  if (!rows.length) return <Card className="p-8 text-center text-muted-foreground gradient-card border-border/60">Need more matches for analytics (min 30 balls or 3 wkts).</Card>;
+  const top = (key: keyof AdvancedRow, label: string, emoji: string, fmt: (v: any) => string, desc: string) => {
+    const sorted = [...rows].sort((a, b) => (b[key] as number) - (a[key] as number)).slice(0, 5);
+    return <RecordCard key={String(key)} title={label} desc={desc} emoji={emoji} entries={sorted.map(r => ({
+      primary: r.name, secondary: r.team, secondaryColor: teamColor(r.team, league.teams),
+      detail: fmt(r[key]),
+    }))} />;
+  };
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {top("impact", "Match Influence Rating", "🌟", v => `Impact ${v}`, "Composite of runs, wickets, boundary %, SR.")}
+      {top("boundaryPct", "Boundary Dependency", "🎯", v => `${v}% from 4s/6s`, "Share of runs from boundaries.")}
+      {top("dotBallPct", "Dot Ball Pressure", "⏸️", v => `${v}% dots faced`, "Approx % of balls without a run scored.")}
+      {top("finisherIndex", "Finisher Rating", "🔚", v => `Finisher ${v}`, "Not-outs × strike rate at the death.")}
+      {top("anchorIndex", "Anchor Rating", "⚓", v => `Anchor ${v}`, "Balls/innings weighted by stable SR.")}
+      {top("pressureSR", "Pressure Performance (Chase SR)", "🔥", v => `Chase SR ${v}`, "Strike rate in 2nd innings (chase).")}
+      {top("wpa", "Wickets Per Appearance", "🎳", v => `${v} wkts/inn`, "Wicket-taker efficiency.")}
+    </div>
+  );
+}
