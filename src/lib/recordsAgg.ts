@@ -22,7 +22,7 @@ export async function loadAllDoneMatches(leagueId: string): Promise<MatchRow[]> 
   const ids = (seasons ?? []).map(s => s.id);
   if (!ids.length) return [];
   const { data } = await supabase.from("matches")
-    .select("id, season_id, match_number, scorecard, team_a, team_b, winner, status")
+    .select("id, season_id, match_number, scorecard, team_a, team_b, winner, status, stage, home_team, venue")
     .in("season_id", ids).eq("status", "done").order("match_number");
   return (data ?? []).map((m: any) => ({ ...m, season_number: sMap.get(m.season_id) ?? 0 })) as MatchRow[];
 }
@@ -525,3 +525,284 @@ export function lowestDefendedTotals(matches: MatchRow[], limit = 10): TeamEntry
   return out.sort((a, b) => a.value - b.value).slice(0, limit);
 }
 
+
+// =====================================================================
+// ============== EXTENDED RECORDS (Teams / Cap / H2H / Adv) ===========
+// =====================================================================
+
+export interface TeamOverallRow {
+  team: string;
+  matches: number; wins: number; losses: number; ties: number;
+  winPct: number;
+  totalRunsScored: number; totalRunsConceded: number;
+  highestScore: number; highestDetail: string;
+  lowestScore: number; lowestDetail: string;
+  biggestChase: number; biggestChaseDetail: string;
+  lowestDefended: number; lowestDefendedDetail: string;
+  bestStreak: number; worstStreak: number;
+  totalSixes: number; totalFours: number;
+  total200s: number; total150s: number;
+  totalWicketsTaken: number;
+  avgScore: number;
+  // home/away
+  homeWins: number; homeLosses: number; awayWins: number; awayLosses: number;
+  homeWinPct: number; awayWinPct: number;
+  // titles / playoffs
+  finalsPlayed: number; titles: number; playoffApps: number;
+}
+
+export function computeTeamOverall(matches: MatchRow[], allTeams: string[]): TeamOverallRow[] {
+  // Need full match rows with stage + home_team for some metrics — fall back gracefully.
+  const init = (t: string): TeamOverallRow => ({
+    team: t, matches: 0, wins: 0, losses: 0, ties: 0, winPct: 0,
+    totalRunsScored: 0, totalRunsConceded: 0,
+    highestScore: 0, highestDetail: "—",
+    lowestScore: 9999, lowestDetail: "—",
+    biggestChase: 0, biggestChaseDetail: "—",
+    lowestDefended: 9999, lowestDefendedDetail: "—",
+    bestStreak: 0, worstStreak: 0,
+    totalSixes: 0, totalFours: 0, total200s: 0, total150s: 0,
+    totalWicketsTaken: 0, avgScore: 0,
+    homeWins: 0, homeLosses: 0, awayWins: 0, awayLosses: 0,
+    homeWinPct: 0, awayWinPct: 0,
+    finalsPlayed: 0, titles: 0, playoffApps: 0,
+  });
+  const map = new Map<string, TeamOverallRow>();
+  allTeams.forEach(t => map.set(t, init(t)));
+
+  // Track per-team result sequence for streaks
+  const seq = new Map<string, ("W" | "L" | "T")[]>();
+  allTeams.forEach(t => seq.set(t, []));
+
+  for (const m of matches) {
+    const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+    if (!i1 || !i2) continue;
+    const stage = (m as any).stage as string | undefined;
+    const homeTeam = (m as any).home_team as string | undefined;
+
+    for (const team of [m.team_a, m.team_b]) {
+      if (!map.has(team)) map.set(team, init(team));
+      const r = map.get(team)!;
+      r.matches++;
+      const myInn = i1.battingTeam === team ? i1 : i2;
+      const oppInn = i1.battingTeam === team ? i2 : i1;
+      r.totalRunsScored += myInn.runs;
+      r.totalRunsConceded += oppInn.runs;
+      if (myInn.runs > r.highestScore) {
+        r.highestScore = myInn.runs;
+        r.highestDetail = `${myInn.runs}/${myInn.wickets} vs ${oppInn.battingTeam} (S${m.season_number ?? "?"})`;
+      }
+      if (myInn.runs < r.lowestScore && myInn.legalBalls > 0) {
+        r.lowestScore = myInn.runs;
+        r.lowestDetail = `${myInn.runs}/${myInn.wickets} vs ${oppInn.battingTeam} (S${m.season_number ?? "?"})`;
+      }
+      // Boundaries / wickets taken
+      const fours = Object.values(myInn.bat as any).reduce((s: number, b: any) => s + (b.fours ?? 0), 0) as number;
+      const sixes = Object.values(myInn.bat as any).reduce((s: number, b: any) => s + (b.sixes ?? 0), 0) as number;
+      r.totalFours += fours; r.totalSixes += sixes;
+      if (myInn.runs >= 150) r.total150s++;
+      if (myInn.runs >= 200) r.total200s++;
+      const wktsTaken = Object.values(myInn.bowl as any).reduce((s: number, b: any) => s + (b.wickets ?? 0), 0) as number;
+      // Note: bowling stats live in *bowlingTeam*'s innings dict, which is the opp innings — fix below
+      const wkts = Object.values(oppInn.bowl as any).reduce((s: number, b: any) => s + (b.wickets ?? 0), 0) as number;
+      // Actually wickets taken by `team` = wickets fallen for `team` opponent = oppInn.wickets if team bowled second
+      // Simplest: wkts taken = (oppInn while bowling).wickets? The .bowl entries on each innings are bowlers of bowlingTeam.
+      // So wickets taken by `team` when bowling = oppInn.wickets (when oppInn = inn where team bowls, i.e. opp bats).
+      // oppInn.battingTeam !== team so oppInn.wickets is what team's bowlers took.
+      r.totalWicketsTaken += oppInn.wickets;
+
+      // Result
+      let res: "W" | "L" | "T";
+      if (!m.winner) res = "T";
+      else if (m.winner === team) res = "W";
+      else res = "L";
+      if (res === "W") r.wins++;
+      else if (res === "L") r.losses++;
+      else r.ties++;
+      seq.get(team)!.push(res);
+
+      // Home / away
+      if (homeTeam) {
+        if (homeTeam === team) {
+          if (res === "W") r.homeWins++; else if (res === "L") r.homeLosses++;
+        } else {
+          if (res === "W") r.awayWins++; else if (res === "L") r.awayLosses++;
+        }
+      }
+
+      // Chases / defends
+      if (m.winner === team) {
+        if (i2.battingTeam === team) {
+          // chased
+          if (i2.runs > r.biggestChase) {
+            r.biggestChase = i2.runs;
+            r.biggestChaseDetail = `chased ${i1.runs + 1} vs ${i1.battingTeam}`;
+          }
+        } else {
+          // defended (batted first, won)
+          if (i1.runs < r.lowestDefended) {
+            r.lowestDefended = i1.runs;
+            r.lowestDefendedDetail = `defended ${i1.runs} vs ${i2.battingTeam}`;
+          }
+        }
+      }
+
+      // Playoff / final markers
+      if (stage === "final") {
+        r.finalsPlayed++;
+        if (m.winner === team) r.titles++;
+      }
+      if (["qualifier1", "eliminator", "qualifier2", "final"].includes(stage ?? "")) {
+        r.playoffApps++;
+      }
+    }
+  }
+
+  // Streaks & %s
+  for (const [team, r] of map) {
+    const s = seq.get(team) ?? [];
+    let bw = 0, bl = 0, curW = 0, curL = 0;
+    for (const x of s) {
+      if (x === "W") { curW++; curL = 0; bw = Math.max(bw, curW); }
+      else if (x === "L") { curL++; curW = 0; bl = Math.max(bl, curL); }
+      else { curW = 0; curL = 0; }
+    }
+    r.bestStreak = bw; r.worstStreak = bl;
+    r.winPct = r.matches ? +((r.wins / r.matches) * 100).toFixed(1) : 0;
+    r.avgScore = r.matches ? +(r.totalRunsScored / r.matches).toFixed(1) : 0;
+    const homeM = r.homeWins + r.homeLosses;
+    const awayM = r.awayWins + r.awayLosses;
+    r.homeWinPct = homeM ? +((r.homeWins / homeM) * 100).toFixed(1) : 0;
+    r.awayWinPct = awayM ? +((r.awayWins / awayM) * 100).toFixed(1) : 0;
+    if (r.lowestScore === 9999) r.lowestScore = 0;
+    if (r.lowestDefended === 9999) r.lowestDefended = 0;
+  }
+  return [...map.values()].sort((a, b) => b.winPct - a.winPct || b.wins - a.wins);
+}
+
+// ----- Captaincy -----
+export interface CaptaincyRow {
+  player_id: string; name: string; team: string;
+  matches: number; wins: number; losses: number; ties: number; winPct: number;
+  bestStreak: number; titles: number; finals: number;
+}
+
+export async function computeCaptaincy(leagueId: string, matches: MatchRow[]): Promise<CaptaincyRow[]> {
+  const { data: squads } = await supabase
+    .from("squads")
+    .select("season_id, team_id, player_id, is_captain, players(id, name)")
+    .eq("is_captain", true);
+  const capMap = new Map<string, { id: string; name: string }>();
+  (squads ?? []).forEach((s: any) => {
+    capMap.set(`${s.season_id}|${s.team_id}`, { id: s.player_id, name: s.players?.name ?? "—" });
+  });
+  const out = new Map<string, CaptaincyRow>();
+  const seq = new Map<string, ("W"|"L"|"T")[]>();
+  for (const m of matches) {
+    for (const team of [m.team_a, m.team_b]) {
+      const cap = capMap.get(`${m.season_id}|${team}`);
+      if (!cap) continue;
+      const r = out.get(cap.id) ?? { player_id: cap.id, name: cap.name, team, matches: 0, wins: 0, losses: 0, ties: 0, winPct: 0, bestStreak: 0, titles: 0, finals: 0 };
+      r.matches++;
+      let res: "W"|"L"|"T";
+      if (!m.winner) res = "T";
+      else if (m.winner === team) res = "W";
+      else res = "L";
+      if (res === "W") r.wins++;
+      else if (res === "L") r.losses++;
+      else r.ties++;
+      const arr = seq.get(cap.id) ?? []; arr.push(res); seq.set(cap.id, arr);
+      const stage = (m as any).stage;
+      if (stage === "final") { r.finals++; if (res === "W") r.titles++; }
+      out.set(cap.id, r);
+    }
+  }
+  for (const [id, r] of out) {
+    r.winPct = r.matches ? +((r.wins / r.matches) * 100).toFixed(1) : 0;
+    let cur = 0, best = 0;
+    for (const x of (seq.get(id) ?? [])) {
+      if (x === "W") { cur++; best = Math.max(best, cur); } else cur = 0;
+    }
+    r.bestStreak = best;
+  }
+  return [...out.values()].filter(r => r.matches >= 2).sort((a, b) => b.winPct - a.winPct || b.wins - a.wins);
+}
+
+// ----- Head-to-Head grid -----
+export interface H2HCell { teamA: string; teamB: string; played: number; aWins: number; bWins: number; ties: number; aRunsAvg: number; bRunsAvg: number; }
+export function computeH2H(matches: MatchRow[], allTeams: string[]): H2HCell[] {
+  const cells = new Map<string, H2HCell>();
+  const key = (a: string, b: string) => a < b ? `${a}|${b}` : `${b}|${a}`;
+  for (const m of matches) {
+    const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+    if (!i1 || !i2) continue;
+    const [a, b] = m.team_a < m.team_b ? [m.team_a, m.team_b] : [m.team_b, m.team_a];
+    const k = key(a, b);
+    const c = cells.get(k) ?? { teamA: a, teamB: b, played: 0, aWins: 0, bWins: 0, ties: 0, aRunsAvg: 0, bRunsAvg: 0 };
+    c.played++;
+    if (!m.winner) c.ties++;
+    else if (m.winner === a) c.aWins++;
+    else if (m.winner === b) c.bWins++;
+    const aRuns = i1.battingTeam === a ? i1.runs : i2.runs;
+    const bRuns = i1.battingTeam === b ? i1.runs : i2.runs;
+    c.aRunsAvg += aRuns; c.bRunsAvg += bRuns;
+    cells.set(k, c);
+  }
+  for (const c of cells.values()) {
+    if (c.played) { c.aRunsAvg = +(c.aRunsAvg / c.played).toFixed(1); c.bRunsAvg = +(c.bRunsAvg / c.played).toFixed(1); }
+  }
+  return [...cells.values()].sort((x, y) => y.played - x.played);
+}
+
+// ----- Advanced analytics -----
+export interface AdvancedRow {
+  player_id: string; name: string; team: string;
+  inn: number; runs: number; balls: number;
+  boundaryPct: number;       // (4s+6s runs) / runs
+  dotBallPct: number;        // dots faced (approximated as balls - runs/avgBallValue) — approximate via 1 - (runsExcluding bndry / non-bndry balls)
+  finisherIndex: number;     // not out & SR > 140
+  anchorIndex: number;       // balls/inn ratio
+  pressureSR: number;        // strike rate in chase 2nd innings
+  wpa: number;               // wickets per appearance (bowlers)
+  impact: number;            // composite
+}
+export function computeAdvanced(matches: MatchRow[], minBalls = 30): AdvancedRow[] {
+  const map = new Map<string, AdvancedRow & { fours: number; sixes: number; notOuts: number; chaseRuns: number; chaseBalls: number; wkts: number }>();
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      const isChase = ik === "innings2";
+      Object.values(inn.bat as any).forEach((b: any) => {
+        const c = map.get(b.player_id) ?? { player_id: b.player_id, name: b.name, team: inn.battingTeam, inn: 0, runs: 0, balls: 0, boundaryPct: 0, dotBallPct: 0, finisherIndex: 0, anchorIndex: 0, pressureSR: 0, wpa: 0, impact: 0, fours: 0, sixes: 0, notOuts: 0, chaseRuns: 0, chaseBalls: 0, wkts: 0 };
+        c.inn++; c.runs += b.runs ?? 0; c.balls += b.balls ?? 0;
+        c.fours += b.fours ?? 0; c.sixes += b.sixes ?? 0;
+        if (!b.out) c.notOuts++;
+        if (isChase) { c.chaseRuns += b.runs ?? 0; c.chaseBalls += b.balls ?? 0; }
+        map.set(b.player_id, c);
+      });
+      Object.values(inn.bowl as any).forEach((b: any) => {
+        const c = map.get(b.player_id) ?? { player_id: b.player_id, name: b.name, team: inn.bowlingTeam, inn: 0, runs: 0, balls: 0, boundaryPct: 0, dotBallPct: 0, finisherIndex: 0, anchorIndex: 0, pressureSR: 0, wpa: 0, impact: 0, fours: 0, sixes: 0, notOuts: 0, chaseRuns: 0, chaseBalls: 0, wkts: 0 };
+        c.wkts += b.wickets ?? 0;
+        map.set(b.player_id, c);
+      });
+    }
+  }
+  const rows: AdvancedRow[] = [];
+  for (const c of map.values()) {
+    if (c.balls < minBalls && c.wkts < 3) continue;
+    const bdryRuns = c.fours * 4 + c.sixes * 6;
+    c.boundaryPct = c.runs ? +((bdryRuns / c.runs) * 100).toFixed(1) : 0;
+    // approximate dot % using boundaries vs total balls
+    const nonBdryBalls = Math.max(0, c.balls - (c.fours + c.sixes));
+    const nonBdryRuns = c.runs - bdryRuns;
+    c.dotBallPct = nonBdryBalls ? +(((nonBdryBalls - nonBdryRuns) / c.balls) * 100).toFixed(1) : 0;
+    const sr = c.balls ? (c.runs / c.balls) * 100 : 0;
+    c.finisherIndex = c.inn ? +(((c.notOuts / c.inn) * 50) + (sr - 130) * 0.5).toFixed(1) : 0;
+    c.anchorIndex = c.inn ? +((c.balls / c.inn) * (sr > 100 ? 1 : 0.8)).toFixed(1) : 0;
+    c.pressureSR = c.chaseBalls ? +((c.chaseRuns / c.chaseBalls) * 100).toFixed(1) : 0;
+    c.wpa = c.inn ? +(c.wkts / c.inn).toFixed(2) : c.wkts;
+    c.impact = +(((c.runs * 0.05) + (c.wkts * 8) + (c.boundaryPct * 0.3) + (sr * 0.2)).toFixed(1));
+    rows.push(c);
+  }
+  return rows.sort((a, b) => b.impact - a.impact);
+}
