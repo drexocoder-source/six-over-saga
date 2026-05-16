@@ -7,16 +7,19 @@ import {
   fastestMilestone, bestStrikeRateInnings, bestEconomySpell, mostDotsInnings, bestBattingAverage,
   mostBoundariesInnings, bestBowlingAverage, mostMaidens,
   biggestWinMargin, closestFinishes, highestSuccessfulChases, lowestDefendedTotals,
-  milestones, type MatchRow, type IndEntry, type TeamEntry, type Milestone,
+  milestones,
+  computeTeamOverall, computeCaptaincy, computeH2H, computeAdvanced,
+  type MatchRow, type IndEntry, type TeamEntry, type Milestone,
+  type TeamOverallRow, type CaptaincyRow, type H2HCell, type AdvancedRow,
 } from "@/lib/recordsAgg";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Trophy, Medal, Award, Sparkles, Info } from "lucide-react";
+import { Loader2, Trophy, Medal, Award, Sparkles, Info, Crown, Swords, BarChart3 } from "lucide-react";
 
 type Scope = "all" | "season" | "match";
-type SubTab = "team" | "individual" | "milestones";
+type SubTab = "team" | "individual" | "milestones" | "overall" | "captaincy" | "h2h" | "advanced";
 
 export default function Records() {
   const [league, setLeague] = useState<League | null>(null);
@@ -121,16 +124,24 @@ function ScopeNote({ text }: { text: string }) {
 }
 
 function SubTabs({ matches, league }: { matches: MatchRow[]; league: League }) {
-  const [tab, setTab] = useState<SubTab>("team");
+  const [tab, setTab] = useState<SubTab>("overall");
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as SubTab)} className="mt-3">
-      <TabsList className="bg-secondary/30">
-        <TabsTrigger value="team"><Trophy className="w-3 h-3 mr-1"/>Team</TabsTrigger>
+      <TabsList className="bg-secondary/30 flex-wrap h-auto">
+        <TabsTrigger value="overall"><Trophy className="w-3 h-3 mr-1"/>Teams Overall</TabsTrigger>
+        <TabsTrigger value="team"><Trophy className="w-3 h-3 mr-1"/>Team Bests</TabsTrigger>
         <TabsTrigger value="individual"><Medal className="w-3 h-3 mr-1"/>Individual</TabsTrigger>
+        <TabsTrigger value="captaincy"><Crown className="w-3 h-3 mr-1"/>Captaincy</TabsTrigger>
+        <TabsTrigger value="h2h"><Swords className="w-3 h-3 mr-1"/>Head-to-Head</TabsTrigger>
+        <TabsTrigger value="advanced"><BarChart3 className="w-3 h-3 mr-1"/>Analytics</TabsTrigger>
         <TabsTrigger value="milestones"><Sparkles className="w-3 h-3 mr-1"/>Milestones</TabsTrigger>
       </TabsList>
+      <TabsContent value="overall" className="mt-4"><OverallTeamsView matches={matches} league={league}/></TabsContent>
       <TabsContent value="team" className="mt-4"><TeamView matches={matches} league={league}/></TabsContent>
       <TabsContent value="individual" className="mt-4"><IndividualView matches={matches} league={league}/></TabsContent>
+      <TabsContent value="captaincy" className="mt-4"><CaptaincyView matches={matches} league={league}/></TabsContent>
+      <TabsContent value="h2h" className="mt-4"><H2HView matches={matches} league={league}/></TabsContent>
+      <TabsContent value="advanced" className="mt-4"><AdvancedView matches={matches} league={league}/></TabsContent>
       <TabsContent value="milestones" className="mt-4"><MilestonesView matches={matches} league={league}/></TabsContent>
     </Tabs>
   );
