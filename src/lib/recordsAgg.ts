@@ -22,7 +22,7 @@ export async function loadAllDoneMatches(leagueId: string): Promise<MatchRow[]> 
   const ids = (seasons ?? []).map(s => s.id);
   if (!ids.length) return [];
   const { data } = await supabase.from("matches")
-    .select("id, season_id, match_number, scorecard, team_a, team_b, winner, status")
+    .select("id, season_id, match_number, scorecard, team_a, team_b, winner, status, stage, home_team, venue")
     .in("season_id", ids).eq("status", "done").order("match_number");
   return (data ?? []).map((m: any) => ({ ...m, season_number: sMap.get(m.season_id) ?? 0 })) as MatchRow[];
 }
