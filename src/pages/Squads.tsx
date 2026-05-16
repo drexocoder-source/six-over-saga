@@ -95,8 +95,6 @@ export default function Squads() {
             variant="outline"
             className="border-primary/50 text-primary"
             onClick={async () => {
-              // Auto-assign captain (highest rating, prefer BAT/AR) + VC (2nd best) per team
-              const updates: Promise<any>[] = [];
               for (const t of teams) {
                 const sq = rows.filter(r => r.team_id === t.id);
                 if (!sq.length) continue;
@@ -106,12 +104,10 @@ export default function Squads() {
                   return (pb.rating + bonus(pb.role)) - (pa.rating + bonus(pa.role));
                 });
                 const cap = ranked[0], vc = ranked[1];
-                // Clear existing
-                updates.push(supabase.from("squads").update({ is_captain: false, is_vice_captain: false }).eq("season_id", seasonId).eq("team_id", t.id));
-                if (cap) updates.push(supabase.from("squads").update({ is_captain: true }).eq("id", cap.id));
-                if (vc) updates.push(supabase.from("squads").update({ is_vice_captain: true }).eq("id", vc.id));
+                await supabase.from("squads").update({ is_captain: false, is_vice_captain: false }).eq("season_id", seasonId).eq("team_id", t.id);
+                if (cap) await supabase.from("squads").update({ is_captain: true }).eq("id", cap.id);
+                if (vc) await supabase.from("squads").update({ is_vice_captain: true }).eq("id", vc.id);
               }
-              await Promise.all(updates);
               const { data } = await supabase.from("squads").select("*, players(*)").eq("season_id", seasonId);
               setRows((data ?? []) as any);
               toast.success(`👑 Captains assigned for ${teams.length} teams`);
