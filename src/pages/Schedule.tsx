@@ -320,9 +320,16 @@ export default function Schedule() {
                 </div>
               </div>
               {m.status !== "done" ? (
-                <Button size="sm" onClick={() => startMatch(m.id)} className="gradient-primary text-primary-foreground">
-                  <Play className="w-3 h-3 mr-1"/>{m.status === "live" ? "Resume" : "Play"}
-                </Button>
+                <div className="flex flex-col gap-1.5">
+                  <Button size="sm" onClick={() => startMatch(m.id)} className="gradient-primary text-primary-foreground">
+                    <Play className="w-3 h-3 mr-1"/>{m.status === "live" ? "Resume" : "Play"}
+                  </Button>
+                  {m.status === "scheduled" && (
+                    <Button size="sm" variant="outline" onClick={() => nav(`/match?id=${m.id}&auto=1`)} className="border-primary/50 text-primary text-xs">
+                      ⚡ Quick Sim
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <div className="text-right">
                   <div className="text-xs text-muted-foreground">Winner</div>

@@ -7,7 +7,9 @@ import { teamLogo } from "@/lib/teamLogos";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle } from "lucide-react";
+import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 interface SquadRow { id: string; team_id: string; price: number; is_captain: boolean; is_vice_captain: boolean; players: any; }
 
@@ -85,6 +87,36 @@ export default function Squads() {
           </div>
         )}
       </div>
+
+      {seasonId && rows.length > 0 && (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-primary/50 text-primary"
+            onClick={async () => {
+              for (const t of teams) {
+                const sq = rows.filter(r => r.team_id === t.id);
+                if (!sq.length) continue;
+                const ranked = [...sq].sort((a: any, b: any) => {
+                  const pa = a.players, pb = b.players;
+                  const bonus = (r: string) => r === "BAT" || r === "AR" ? 3 : r === "WK" ? 1 : 0;
+                  return (pb.rating + bonus(pb.role)) - (pa.rating + bonus(pa.role));
+                });
+                const cap = ranked[0], vc = ranked[1];
+                await supabase.from("squads").update({ is_captain: false, is_vice_captain: false }).eq("season_id", seasonId).eq("team_id", t.id);
+                if (cap) await supabase.from("squads").update({ is_captain: true }).eq("id", cap.id);
+                if (vc) await supabase.from("squads").update({ is_vice_captain: true }).eq("id", vc.id);
+              }
+              const { data } = await supabase.from("squads").select("*, players(*)").eq("season_id", seasonId);
+              setRows((data ?? []) as any);
+              toast.success(`👑 Captains assigned for ${teams.length} teams`);
+            }}
+          >
+            <Wand2 className="w-3 h-3 mr-1"/> Auto-assign Captains
+          </Button>
+        </div>
+      )}
 
       {seasons.length === 0 ? (
         <Card className="p-12 text-center gradient-card border-border/60 text-muted-foreground">No season yet — start one from the Dashboard.</Card>
