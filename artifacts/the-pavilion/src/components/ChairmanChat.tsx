@@ -46,10 +46,10 @@ export default function ChairmanChat({ league, context }: { league: League; cont
     setInput("");
     setLoading(true);
     try {
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chairman-chat`;
+      const url = `${window.location.origin}/functions/v1/chairman-chat`;
       const resp = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })), context }),
       });
       if (resp.status === 429) { toast.error("AI rate limit — try in a moment."); setLoading(false); return; }

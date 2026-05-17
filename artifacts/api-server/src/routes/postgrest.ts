@@ -26,6 +26,47 @@ const router: IRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? "pavilion-dev-secret-change-in-prod";
 const JWT_EXPIRY = "7d";
 
+/**
+ * Tables that are read-only for everyone (global player pool, lookup data).
+ * No writes are permitted on these from the client layer.
+ */
+const READ_ONLY_TABLES = new Set(["players"]);
+
+/**
+ * Tables scoped to a league — writes require the caller to supply the league_id
+ * either as a query param or body field, AND must own that league
+ * (matched by JWT user id = owner_id, or device_id header = league device_id).
+ */
+const LEAGUE_SCOPED_TABLES = new Set([
+  "seasons", "matches", "squads", "records", "achievements", "trophies",
+  "custom_records", "rating_history", "ceremony_images", "match_moments",
+  "social_accounts", "social_posts", "social_replies", "social_follows",
+  "social_likes", "balls",
+]);
+
+/**
+ * Verify the caller owns the league referenced by the request.
+ * Returns null on success, or an error string on failure.
+ */
+async function verifyLeagueOwnership(
+  req: Request,
+  leagueId: string | null
+): Promise<string | null> {
+  if (!leagueId) return "league_id required for mutations";
+
+  const [league] = await db.select().from(leaguesTable).where(eq(leaguesTable.id, leagueId)).limit(1);
+  if (!league) return "league not found";
+
+  const user = extractUser(req);
+  if (user && league.ownerId && league.ownerId === user.id) return null;
+  if (user && !league.ownerId) return null; // unclaimed league — any auth user can act on it
+
+  const deviceId = req.headers["x-device-id"] as string | undefined;
+  if (deviceId && league.deviceId === deviceId) return null;
+
+  return "Forbidden: you do not own this league";
+}
+
 const TABLE_MAP: Record<string, any> = {
   leagues: leaguesTable,
   players: playersTable,
@@ -353,9 +394,34 @@ router.post("/v1/:table", async (req: Request, res: Response): Promise<void> => 
   const dbTable = TABLE_MAP[tableName];
   if (!dbTable) { res.status(404).json({ error: "Table not found" }); return; }
 
+  if (READ_ONLY_TABLES.has(tableName)) {
+    res.status(403).json({ error: "Forbidden: table is read-only" });
+    return;
+  }
+
   try {
     const body = req.body;
     const rows = Array.isArray(body) ? body : [body];
+
+    // For league-scoped tables, verify ownership before writing
+    if (LEAGUE_SCOPED_TABLES.has(tableName)) {
+      const firstRow = rows[0] ?? {};
+      const leagueId: string | null =
+        firstRow.league_id ?? firstRow.leagueId ??
+        (req.query.league_id as string) ?? null;
+      const err = await verifyLeagueOwnership(req, leagueId);
+      if (err) { res.status(403).json({ error: err }); return; }
+    }
+    // For leagues table itself: if creating a new league, only authenticated or device-id callers allowed
+    if (tableName === "leagues") {
+      const user = extractUser(req);
+      const deviceId = req.headers["x-device-id"] as string | undefined;
+      if (!user && !deviceId) {
+        res.status(401).json({ error: "Authentication or device-id required to create a league" });
+        return;
+      }
+    }
+
     const camelRows = rows.map(toCamelCase);
 
     // Batch large inserts to avoid pg parameter limit (max ~65k params)
@@ -386,8 +452,37 @@ router.patch("/v1/:table", async (req: Request, res: Response): Promise<void> =>
   const dbTable = TABLE_MAP[tableName];
   if (!dbTable) { res.status(404).json({ error: "Table not found" }); return; }
 
+  if (READ_ONLY_TABLES.has(tableName)) {
+    res.status(403).json({ error: "Forbidden: table is read-only" });
+    return;
+  }
+
   try {
-    const conditions = buildConditions(dbTable, req.query as Record<string, string>);
+    const q2 = req.query as Record<string, string>;
+    // For league-scoped tables: derive league_id from query params or look up the row
+    if (LEAGUE_SCOPED_TABLES.has(tableName)) {
+      const leagueId: string | null = q2.league_id ?? (req.body?.league_id) ?? null;
+      const err = await verifyLeagueOwnership(req, leagueId);
+      if (err) { res.status(403).json({ error: err }); return; }
+    }
+    // For leagues table: require ownership (owner or device)
+    if (tableName === "leagues") {
+      const leagueId: string | null = q2.id?.startsWith("eq.") ? q2.id.slice(3) : null;
+      if (leagueId) {
+        const err = await verifyLeagueOwnership(req, leagueId);
+        if (err) { res.status(403).json({ error: err }); return; }
+      } else {
+        // No id filter — require auth to prevent mass updates
+        const user = extractUser(req);
+        const deviceId = req.headers["x-device-id"] as string | undefined;
+        if (!user && !deviceId) {
+          res.status(401).json({ error: "Authentication required" });
+          return;
+        }
+      }
+    }
+
+    const conditions = buildConditions(dbTable, q2);
     const camelBody = toCamelCase(req.body);
     const whereClause = conditions.length === 1 ? conditions[0] : conditions.length > 1 ? and(...conditions) : undefined;
 
@@ -414,8 +509,26 @@ router.delete("/v1/:table", async (req: Request, res: Response): Promise<void> =
   const dbTable = TABLE_MAP[tableName];
   if (!dbTable) { res.status(404).json({ error: "Table not found" }); return; }
 
+  if (READ_ONLY_TABLES.has(tableName)) {
+    res.status(403).json({ error: "Forbidden: table is read-only" });
+    return;
+  }
+
   try {
-    const conditions = buildConditions(dbTable, req.query as Record<string, string>);
+    const q2 = req.query as Record<string, string>;
+    if (LEAGUE_SCOPED_TABLES.has(tableName)) {
+      const leagueId: string | null = q2.league_id ?? null;
+      const err = await verifyLeagueOwnership(req, leagueId);
+      if (err) { res.status(403).json({ error: err }); return; }
+    }
+    if (tableName === "leagues") {
+      const leagueId: string | null = q2.id?.startsWith("eq.") ? q2.id.slice(3) : null;
+      if (!leagueId) { res.status(400).json({ error: "id filter required to delete a league" }); return; }
+      const err = await verifyLeagueOwnership(req, leagueId);
+      if (err) { res.status(403).json({ error: err }); return; }
+    }
+
+    const conditions = buildConditions(dbTable, q2);
     const whereClause = conditions.length === 1 ? conditions[0] : conditions.length > 1 ? and(...conditions) : undefined;
 
     let q: any = db.delete(dbTable);

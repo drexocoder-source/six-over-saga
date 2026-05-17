@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,11 +38,6 @@ export default function AuthPage() {
     if (error) toast.error(error.message);
     else toast.success("Account created — you're in");
   }
-  async function google() {
-    setBusy(true);
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (result.error) { toast.error(result.error.message ?? "Google sign-in failed"); setBusy(false); }
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-background">
@@ -56,15 +50,6 @@ export default function AuthPage() {
             <div className="font-serif text-2xl">The&nbsp;Pavilion</div>
             <div className="kicker text-xs">Sign in to keep your league forever</div>
           </div>
-        </div>
-
-        <Button onClick={google} disabled={busy} variant="outline" className="w-full">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-          Continue with Google
-        </Button>
-
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex-1 border-t border-border" /> or <div className="flex-1 border-t border-border" />
         </div>
 
         <Tabs defaultValue="signin">

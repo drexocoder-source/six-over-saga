@@ -76,7 +76,6 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@lovable.dev/cloud-auth-js": "^1.1.2",
     "@supabase/supabase-js": "^2.105.4",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
