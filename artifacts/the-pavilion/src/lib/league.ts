@@ -19,9 +19,9 @@ export interface League {
     startingPurse: number;
     powerplayEnabled?: boolean;
     powerplayOvers?: number;
-    overseasMaxXI?: number;       // max overseas in playing XI
-    impactPlayerEnabled?: boolean;// 1 substitution allowed mid-match
-    scoreProfile?: ScoreProfile;  // chairman dial that biases AI sim
+    overseasMaxXI?: number;
+    impactPlayerEnabled?: boolean;
+    scoreProfile?: ScoreProfile;
   };
   current_season: number;
 }
@@ -34,11 +34,34 @@ export const DEFAULT_SETTINGS: League["settings"] = {
   playingXI: 11,
   startingPurse: 100,
   powerplayEnabled: true,
-  powerplayOvers: 4,        // overs 1–4 (matches old IPL inner-fielding rules close enough for sim)
+  powerplayOvers: 4,
   overseasMaxXI: 4,
   impactPlayerEnabled: true,
   scoreProfile: "200+",
 };
+
+/** Insert players in safe chunks of 200 to avoid any payload/param limits. */
+async function seedPlayersForLeague(leagueId: string): Promise<void> {
+  const players = SEED_POOL.map(p => ({
+    league_id: leagueId,
+    name: p.name,
+    role: p.role,
+    base_price: p.base_price,
+    rating: p.rating,
+    nationality: p.nationality ?? "IND",
+    pfp_url: playerPhoto(p.name),
+  }));
+
+  const CHUNK = 200;
+  for (let i = 0; i < players.length; i += CHUNK) {
+    const chunk = players.slice(i, i + CHUNK);
+    const { error } = await supabase.from("players").insert(chunk);
+    if (error) {
+      console.error(`[league] Player seed chunk ${i}–${i + CHUNK} failed:`, error.message);
+      // continue — partial seed is better than crashing, and we check count below
+    }
+  }
+}
 
 export async function getOrCreateLeague(): Promise<League> {
   const device_id = getDeviceId();
@@ -84,6 +107,19 @@ export async function getOrCreateLeague(): Promise<League> {
   }
 
   if (existing) {
+    // Auto-heal: if the player pool is missing or tiny, re-seed now.
+    const { count } = await supabase
+      .from("players")
+      .select("*", { count: "exact", head: true })
+      .eq("league_id", existing.id);
+
+    if ((count ?? 0) < SEED_POOL.length * 0.5) {
+      console.info(`[league] Under-seeded league ${existing.id} (${count} players) — re-seeding now…`);
+      // Delete whatever partial rows are there and start fresh
+      await supabase.from("players").delete().eq("league_id", existing.id);
+      await seedPlayersForLeague(existing.id);
+    }
+
     const merged = { ...DEFAULT_SETTINGS, ...(existing.settings as any) };
     return { ...(existing as any), settings: merged } as unknown as League;
   }
@@ -102,17 +138,7 @@ export async function getOrCreateLeague(): Promise<League> {
 
   if (error || !created) throw error ?? new Error("League creation failed");
 
-  // Seed players with photos
-  const players = SEED_POOL.map(p => ({
-    league_id: created.id,
-    name: p.name,
-    role: p.role,
-    base_price: p.base_price,
-    rating: p.rating,
-    nationality: p.nationality ?? "IND",
-    pfp_url: playerPhoto(p.name),
-  }));
-  await supabase.from("players").insert(players);
+  await seedPlayersForLeague(created.id);
 
   return created as unknown as League;
 }
