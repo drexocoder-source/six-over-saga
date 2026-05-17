@@ -6,8 +6,9 @@ import { teamColor } from "@/lib/teams";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Trophy, Crown, Calendar } from "lucide-react";
+import { Loader2, Trophy, Crown, Calendar, Shirt } from "lucide-react";
 import { AWARD_META, type AwardKey } from "@/lib/awards";
+import { JerseyCard } from "@/components/JerseyCard";
 
 interface SeasonSummary {
   id: string; season_number: number; year: number; status: string;
@@ -128,11 +129,12 @@ export default function SeasonHistory() {
 
       {activeSeason != null && seasonStats && (
         <Tabs defaultValue="awards">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="awards">🏆 Awards</TabsTrigger>
             <TabsTrigger value="standings">📊 Standings</TabsTrigger>
             <TabsTrigger value="batting">🏏 Top Batters</TabsTrigger>
             <TabsTrigger value="bowling">🎯 Top Bowlers</TabsTrigger>
+            <TabsTrigger value="jerseys"><Shirt className="w-3 h-3 mr-1"/>Jerseys</TabsTrigger>
             <TabsTrigger value="matches">⚔️ Matches</TabsTrigger>
           </TabsList>
 
@@ -228,6 +230,33 @@ export default function SeasonHistory() {
                 </tbody>
               </table>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="jerseys" className="mt-4">
+            <div className="space-y-4">
+              <div className="text-xs text-muted-foreground italic flex items-center gap-2">
+                <Shirt className="w-3 h-3"/>Each season auto-generates unique kit patterns for every franchise.
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {league.teams.map(team => (
+                  <Card key={team.id} className="p-4 gradient-card border-border/60 flex flex-col items-center gap-3 hover:border-primary/40 transition-colors group">
+                    <JerseyCard
+                      teamName={team.id}
+                      primaryColor={team.primary}
+                      secondaryColor="#ffffff"
+                      seasonNumber={activeSeason ?? 1}
+                      size="lg"
+                      showLabel={false}
+                    />
+                    <div className="text-center">
+                      <div className="font-display text-base leading-tight" style={{ color: team.primary }}>{team.shortName}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{team.fullName}</div>
+                      <div className="text-[9px] text-primary/60 mt-0.5">Season {activeSeason} Kit</div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="matches" className="mt-4">

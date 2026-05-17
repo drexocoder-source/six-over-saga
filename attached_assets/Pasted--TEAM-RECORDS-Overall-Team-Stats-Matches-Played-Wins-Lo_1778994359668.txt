@@ -1,0 +1,455 @@
+👑 TEAM RECORDS
+
+📊 Overall Team Stats
+
+ Matches Played
+
+ Wins
+
+ Losses
+
+ Ties
+
+ No Results
+
+ Win %
+
+ Total Titles
+
+ Finals Played
+
+ Playoff Appearances
+
+ Wooden Spoons
+
+ Consecutive Wins
+
+ Consecutive Losses
+
+ Highest Team Score
+
+ Lowest Team Score
+
+ Highest Successful Chase
+
+ Lowest Successful Defense
+
+ Super Over Wins
+
+ Super Over Losses
+
+ Total Runs Scored
+
+ Total Runs Conceded
+
+🏠 Home / Away Stats
+
+ Home Wins
+
+ Home Losses
+
+ Away Wins
+
+ Away Losses
+
+ Neutral Venue Wins
+
+ Best Home Ground
+
+ Worst Home Ground
+
+ Home Win %
+
+ Away Win %
+
+ Toss Win %
+
+🎯 Batting Team Records
+
+ Most 200+ Scores
+
+ Most 250+ Scores
+
+ Fastest Team Fifty
+
+ Fastest Team Hundred
+
+ Most Sixes in Season
+
+ Most Fours in Season
+
+ Highest Powerplay Score
+
+ Lowest Powerplay Score
+
+ Highest Death Overs Runs
+
+ Most Runs in One Over
+
+ Most Extras Conceded
+
+ Highest Partnership
+
+ Most Century Partnerships
+
+ Most Boundary %
+
+ Best Run Rate
+
+ Most Runs in a Season
+
+ Most Chases Completed
+
+ Biggest Chase Ever
+
+ Most Runs in History
+
+ Highest Average Score
+
+🎳 Bowling Team Records
+
+ Lowest Economy Rate
+
+ Best Bowling Average
+
+ Most Dot Balls
+
+ Most Maidens
+
+ Most Wickets in Season
+
+ Best Powerplay Bowling
+
+ Best Death Bowling
+
+ Lowest Defended Score
+
+ Most Bowled Outs
+
+ Most LBWs
+
+👤 PLAYER CAREER RECORDS
+
+🏏 Batting Career
+
+ Matches
+
+ Innings
+
+ Runs
+
+ Highest Score
+
+ Average
+
+ Strike Rate
+
+ 50s
+
+ 100s
+
+ 200s
+
+ Ducks
+
+ Not Outs
+
+ Balls Faced
+
+ Fours
+
+ Sixes
+
+ Boundary %
+
+ Dot Ball %
+
+ Most POTM Awards
+
+ Most Orange Caps
+
+ Fastest Fifty
+
+ Fastest Hundred
+
+ Most Runs vs One Team
+
+ Most Runs at One Venue
+
+ Most Consecutive 50s
+
+ Most Consecutive 100s
+
+ Highest Chase Score
+
+ Most Match Winning Knocks
+
+ Most Sixes Career
+
+ Most Fours Career
+
+ Highest Strike Rate Season
+
+ Most Runs All Time
+
+🎳 Bowling Career
+
+ Wickets
+
+ Economy
+
+ Bowling Average
+
+ Strike Rate
+
+ Best Figures
+
+ 4 Wicket Hauls
+
+ 5 Wicket Hauls
+
+ Maidens
+
+ Dot Balls
+
+ Most Purple Caps
+
+ Fastest to 100 Wickets
+
+ Most Wickets in Powerplay
+
+ Most Death Overs Wickets
+
+ Most Dot Balls Career
+
+ Best Economy Season
+
+ Most Wickets All Time
+
+ Most Wickets vs One Team
+
+ Most Wickets at Venue
+
+ Most Consecutive Wicket Matches
+
+ Most Match Winning Spells
+
+🧤 FIELDING RECORDS
+
+ Catches
+
+ Run Outs
+
+ Stumpings
+
+ Most Catches in Season
+
+ Most Run Outs
+
+ Most Dismissals by WK
+
+ Best Fielding Rating
+
+ Direct Hit %
+
+ Catch Success %
+
+ Boundary Saves
+
+👑 CAPTAINCY RECORDS
+
+ Matches as Captain
+
+ Wins as Captain
+
+ Losses as Captain
+
+ Win % as Captain
+
+ Toss Wins
+
+ Titles Won
+
+ Finals Reached
+
+ Playoff Qualifications
+
+ Home Win % as Captain
+
+ Away Win % as Captain
+
+ Highest Chase as Captain
+
+ Most Consecutive Wins as Captain
+
+ Most Matches Captained
+
+ Most POTM Under Captaincy
+
+ Best Captain Rating
+
+🔥 SEASON RECORDS
+
+ Most Runs in One Season
+
+ Most Wickets in One Season
+
+ Most Sixes in One Season
+
+ Highest Strike Rate Season
+
+ Best Economy Season
+
+ Most Hundreds Season
+
+ Most Fifties Season
+
+ Most Wins Season
+
+ Longest Winning Streak
+
+ Biggest NRR
+
+ Most Successful Chases
+
+ Most Defended Totals
+
+ Best All-Rounder Season
+
+ MVP Season
+
+ Most Fantasy Points
+
+⚔️ HEAD TO HEAD STATS
+
+ Team vs Team Record
+
+ Player vs Team Stats
+
+ Batter vs Bowler
+
+ Captain vs Captain
+
+ Venue Head-to-Head
+
+ Chase vs Defend Record
+
+ Knockout Match Record
+
+ Finals Head-to-Head
+
+ Super Over Head-to-Head
+
+ Toss Impact Record
+
+🧠 ADVANCED ANALYTICS
+
+ Win Probability Added
+
+ Clutch Rating
+
+ Pressure Performance
+
+ Chase Impact
+
+ Boundary Dependency
+
+ Dot Ball Pressure
+
+ Finisher Rating
+
+ Anchor Rating
+
+ Death Overs Rating
+
+ Powerplay Impact
+
+ Batting Consistency Index
+
+ Bowling Impact Score
+
+ Match Influence Rating
+
+ MVP Score
+
+ Aggression Meter
+
+📈 COMPARISON FEATURES
+
+👤 Player Comparisons
+
+ Career vs Career
+
+ Prime vs Prime
+
+ Season vs Season
+
+ Venue Comparison
+
+ Team Comparison
+
+ Phase-wise Comparison
+
+ Captaincy Comparison
+
+🏏 Team Comparisons
+
+ Team Era Comparison
+
+ Batting Strength
+
+ Bowling Strength
+
+ Home Dominance
+
+ Away Dominance
+
+ Playoff Performance
+
+ Finals Record
+
+ Trophy Comparison
+
+🌟 SPECIAL FEATURES
+
+ Hall of Fame
+
+ Team Legends
+
+ Retired Jerseys
+
+ Greatest XI
+
+ Season Awards Archive
+
+ Match Timeline Replay
+
+ Ball-by-Ball History
+
+ Auction History
+
+ Transfer Records
+
+ Injury History
+
+ Rivalry Tracker
+
+ Dynasty Rating
+
+ Fan Popularity Meter
+
+ Pressure Match Stats
+
+ Upset Wins Record
+
+
+addd the rest of this
+
+and it takes to much time to load the pages make it ultra fast and smooth
+change styl more aetshetic and designerr add more elements 
+add jeresy generation each season changes auto
+
+and captinacy stats are not saving or showin in records i have appointed still fixx thiss fullly
+
+
+and gpt u suggest more stuufs

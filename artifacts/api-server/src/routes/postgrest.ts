@@ -337,6 +337,14 @@ async function resolveJoins(
 
 // ============ AUTH ROUTES (/auth/v1/...) ============
 
+const REFRESH_EXPIRY = "30d";
+function makeTokens(userId: string, email: string) {
+  const access_token = jwt.sign({ sub: userId, email, role: "authenticated" }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
+  const refresh_token = jwt.sign({ sub: userId, type: "refresh" }, JWT_SECRET, { expiresIn: REFRESH_EXPIRY });
+  const user = { id: userId, email, role: "authenticated" };
+  return { access_token, refresh_token, token_type: "bearer", expires_in: 604800, user };
+}
+
 router.post("/v1/signup", async (req: Request, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
@@ -347,13 +355,8 @@ router.post("/v1/signup", async (req: Request, res: Response): Promise<void> => 
 
     const passwordHash = await bcrypt.hash(password, 10);
     const [user] = await db.insert(usersTable).values({ email, passwordHash }).returning();
-    const token = jwt.sign({ sub: user.id, email: user.email, role: "authenticated" }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
 
-    res.status(200).json({
-      access_token: token,
-      token_type: "bearer",
-      user: { id: user.id, email: user.email, role: "authenticated" },
-    });
+    res.status(200).json(makeTokens(user.id, user.email));
   } catch (err) {
     req.log.error({ err }, "signup error");
     res.status(500).json({ error: "Internal server error" });
@@ -362,6 +365,25 @@ router.post("/v1/signup", async (req: Request, res: Response): Promise<void> => 
 
 router.post("/v1/token", async (req: Request, res: Response): Promise<void> => {
   try {
+    const grantType = (req.query.grant_type ?? req.body.grant_type) as string;
+
+    // Refresh token grant — validate refresh JWT and issue fresh tokens.
+    if (grantType === "refresh_token") {
+      const { refresh_token } = req.body;
+      if (!refresh_token) { res.status(400).json({ error: "refresh_token required" }); return; }
+      try {
+        const payload = jwt.verify(refresh_token, JWT_SECRET) as any;
+        if (payload.type !== "refresh") { res.status(400).json({ error: "invalid refresh token" }); return; }
+        const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payload.sub)).limit(1);
+        if (!user) { res.status(400).json({ error: "user not found" }); return; }
+        res.json(makeTokens(user.id, user.email));
+      } catch {
+        res.status(401).json({ error: "refresh token expired or invalid" });
+      }
+      return;
+    }
+
+    // Password grant
     const { email, password } = req.body;
     if (!email || !password) { res.status(400).json({ error: "email and password required" }); return; }
 
@@ -371,12 +393,7 @@ router.post("/v1/token", async (req: Request, res: Response): Promise<void> => {
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) { res.status(400).json({ error: "Invalid login credentials" }); return; }
 
-    const token = jwt.sign({ sub: user.id, email: user.email, role: "authenticated" }, JWT_SECRET, { expiresIn: JWT_EXPIRY });
-    res.json({
-      access_token: token,
-      token_type: "bearer",
-      user: { id: user.id, email: user.email, role: "authenticated" },
-    });
+    res.json(makeTokens(user.id, user.email));
   } catch (err) {
     req.log.error({ err }, "signin error");
     res.status(500).json({ error: "Internal server error" });

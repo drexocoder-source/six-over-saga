@@ -32,7 +32,7 @@ export function AppLayout() {
                 </Button>
               ) : (
                 <Button asChild variant="outline" size="sm" className="text-xs gap-1.5">
-                  <Link to="/auth"><LogIn className="w-3.5 h-3.5" /> Sign in</Link>
+                  <Link to="/signin"><LogIn className="w-3.5 h-3.5" /> Sign in</Link>
                 </Button>
               ))}
             </div>

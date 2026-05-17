@@ -806,3 +806,229 @@ export function computeAdvanced(matches: MatchRow[], minBalls = 30): AdvancedRow
   }
   return rows.sort((a, b) => b.impact - a.impact);
 }
+
+// =====================================================================
+// ============== PHASE ANALYTICS =====================================
+// =====================================================================
+
+export interface PhaseStats {
+  team: string;
+  ppRuns: number; ppWkts: number; ppBalls: number;
+  midRuns: number; midWkts: number; midBalls: number;
+  deathRuns: number; deathWkts: number; deathBalls: number;
+  totalMatches: number;
+  ppBdryPct: number; midBdryPct: number; deathBdryPct: number;
+}
+
+export function computePhaseStats(matches: MatchRow[], ppOvers = 6): Map<string, PhaseStats> {
+  const map = new Map<string, PhaseStats>();
+  const mkInit = (team: string): PhaseStats => ({
+    team, ppRuns: 0, ppWkts: 0, ppBalls: 0, midRuns: 0, midWkts: 0, midBalls: 0,
+    deathRuns: 0, deathWkts: 0, deathBalls: 0, totalMatches: 0,
+    ppBdryPct: 0, midBdryPct: 0, deathBdryPct: 0,
+  });
+  const bdryRuns = new Map<string, { pp: number; mid: number; death: number; ppR: number; midR: number; deathR: number }>();
+
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn || !inn.ballEvents) continue;
+      const team = inn.battingTeam;
+      const s = map.get(team) ?? mkInit(team);
+      const bd = bdryRuns.get(team) ?? { pp: 0, mid: 0, death: 0, ppR: 0, midR: 0, deathR: 0 };
+      s.totalMatches++;
+      for (const e of inn.ballEvents) {
+        const ov = e.over;
+        const isB = e.isBoundary === 4 || e.isBoundary === 6;
+        const bRuns = e.isBoundary === 4 ? 4 : e.isBoundary === 6 ? 6 : 0;
+        if (ov < ppOvers) {
+          s.ppRuns += e.runs; s.ppBalls++; if (e.isWicket) s.ppWkts++;
+          if (isB) { bd.pp += bRuns; } bd.ppR += e.runs;
+        } else if (ov < 15) {
+          s.midRuns += e.runs; s.midBalls++; if (e.isWicket) s.midWkts++;
+          if (isB) { bd.mid += bRuns; } bd.midR += e.runs;
+        } else {
+          s.deathRuns += e.runs; s.deathBalls++; if (e.isWicket) s.deathWkts++;
+          if (isB) { bd.death += bRuns; } bd.deathR += e.runs;
+        }
+      }
+      map.set(team, s);
+      bdryRuns.set(team, bd);
+    }
+  }
+  for (const [team, s] of map) {
+    const bd = bdryRuns.get(team)!;
+    s.ppBdryPct = bd.ppR ? +((bd.pp / bd.ppR) * 100).toFixed(1) : 0;
+    s.midBdryPct = bd.midR ? +((bd.mid / bd.midR) * 100).toFixed(1) : 0;
+    s.deathBdryPct = bd.deathR ? +((bd.death / bd.deathR) * 100).toFixed(1) : 0;
+  }
+  return map;
+}
+
+// =====================================================================
+// ============== CHASE ANALYTICS ======================================
+// =====================================================================
+
+export interface ChaseRange { range: string; attempts: number; wins: number; winPct: number; avgChase: number; }
+
+export function computeChaseSuccessRate(matches: MatchRow[]): ChaseRange[] {
+  const ranges: [string, number, number][] = [
+    ["< 130", 0, 129], ["130–149", 130, 149], ["150–169", 150, 169],
+    ["170–189", 170, 189], ["190–209", 190, 209], ["210+", 210, 9999],
+  ];
+  return ranges.map(([range, lo, hi]) => {
+    let attempts = 0, wins = 0, total = 0;
+    for (const m of matches) {
+      const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
+      if (!i1 || !i2) continue;
+      const target = i1.runs + 1;
+      if (target - 1 >= lo && target - 1 <= hi) {
+        attempts++;
+        total += i2.runs;
+        if (m.winner === i2.battingTeam) wins++;
+      }
+    }
+    return { range, attempts, wins, winPct: attempts ? +((wins / attempts) * 100).toFixed(1) : 0, avgChase: attempts ? +(total / attempts).toFixed(1) : 0 };
+  }).filter(r => r.attempts > 0);
+}
+
+// =====================================================================
+// ============== TOSS ANALYTICS ========================================
+// =====================================================================
+
+export interface TossStats { team: string; tossWins: number; batAfterToss: number; fieldAfterToss: number; winAfterTossWin: number; winAfterTossLoss: number; tossWinMatchWinPct: number; }
+
+export function computeTossStats(matches: MatchRow[]): TossStats[] {
+  const map = new Map<string, TossStats>();
+  const mk = (t: string): TossStats => ({ team: t, tossWins: 0, batAfterToss: 0, fieldAfterToss: 0, winAfterTossWin: 0, winAfterTossLoss: 0, tossWinMatchWinPct: 0 });
+  for (const m of matches) {
+    const tossWinner = (m as any).toss_winner as string | undefined;
+    const tossChoice = (m as any).toss_choice as string | undefined;
+    if (!tossWinner) continue;
+    for (const team of [m.team_a, m.team_b]) {
+      const s = map.get(team) ?? mk(team);
+      const wonToss = tossWinner === team;
+      if (wonToss) {
+        s.tossWins++;
+        if (tossChoice === "bat") s.batAfterToss++; else s.fieldAfterToss++;
+        if (m.winner === team) s.winAfterTossWin++;
+      } else {
+        if (m.winner === team) s.winAfterTossLoss++;
+      }
+      map.set(team, s);
+    }
+  }
+  for (const s of map.values()) {
+    s.tossWinMatchWinPct = s.tossWins ? +((s.winAfterTossWin / s.tossWins) * 100).toFixed(1) : 0;
+  }
+  return [...map.values()].sort((a, b) => b.tossWinMatchWinPct - a.tossWinMatchWinPct);
+}
+
+// =====================================================================
+// ============== COLLAPSE STATS ========================================
+// =====================================================================
+
+export interface CollapseEntry { team: string; match_id: string; season_number?: number; collapseText: string; wickets: number; runs: number; }
+
+export function computeCollapseStats(matches: MatchRow[], limit = 10): CollapseEntry[] {
+  const out: CollapseEntry[] = [];
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn || !inn.ballEvents) continue;
+      let wkts = 0, runs = 0, window = 18;
+      for (let startBall = 0; startBall < inn.ballEvents.length; startBall++) {
+        wkts = 0; runs = 0;
+        for (let j = startBall; j < Math.min(startBall + window, inn.ballEvents.length); j++) {
+          runs += inn.ballEvents[j].runs;
+          if (inn.ballEvents[j].isWicket) wkts++;
+        }
+        if (wkts >= 4) {
+          out.push({ team: inn.battingTeam, match_id: m.id, season_number: m.season_number, collapseText: `Lost ${wkts}/${runs} in ${Math.ceil(window / 6)} overs`, wickets: wkts, runs });
+          break;
+        }
+      }
+    }
+  }
+  return out.sort((a, b) => b.wickets - a.wickets || a.runs - b.runs).slice(0, limit);
+}
+
+// =====================================================================
+// ============== PLAYER DEEP ANALYTICS ================================
+// =====================================================================
+
+export interface PlayerDeepRow {
+  player_id: string; name: string; team: string;
+  inn: number; runs: number; balls: number;
+  chaseRuns: number; chaseBalls: number; chaseInn: number;
+  defRuns: number; defBalls: number; defInn: number;
+  ppRuns: number; ppBalls: number;
+  midRuns: number; midBalls: number;
+  deathRuns: number; deathBalls: number;
+  wickets: number; wicketsVsBat: number; wicketsVsBowl: number;
+}
+
+export function computePlayerDeepStats(matches: MatchRow[], ppOvers = 6): PlayerDeepRow[] {
+  const map = new Map<string, PlayerDeepRow>();
+  const mk = (id: string, name: string, team: string): PlayerDeepRow => ({
+    player_id: id, name, team, inn: 0, runs: 0, balls: 0,
+    chaseRuns: 0, chaseBalls: 0, chaseInn: 0,
+    defRuns: 0, defBalls: 0, defInn: 0,
+    ppRuns: 0, ppBalls: 0, midRuns: 0, midBalls: 0, deathRuns: 0, deathBalls: 0,
+    wickets: 0, wicketsVsBat: 0, wicketsVsBowl: 0,
+  });
+
+  for (const m of matches) {
+    for (const ik of ["innings1", "innings2"] as const) {
+      const inn = m.scorecard?.[ik]; if (!inn) continue;
+      const isChase = ik === "innings2";
+
+      Object.values(inn.bat as any).forEach((b: any) => {
+        const c = map.get(b.player_id) ?? mk(b.player_id, b.name, inn.battingTeam);
+        c.inn++; c.runs += b.runs ?? 0; c.balls += b.balls ?? 0;
+        if (isChase) { c.chaseRuns += b.runs ?? 0; c.chaseBalls += b.balls ?? 0; c.chaseInn++; }
+        else { c.defRuns += b.runs ?? 0; c.defBalls += b.balls ?? 0; c.defInn++; }
+        map.set(b.player_id, c);
+      });
+
+      Object.values(inn.bowl as any).forEach((b: any) => {
+        const c = map.get(b.player_id) ?? mk(b.player_id, b.name, inn.bowlingTeam);
+        c.wickets += b.wickets ?? 0;
+        map.set(b.player_id, c);
+      });
+    }
+  }
+  return [...map.values()].filter(c => c.balls >= 20 || c.wickets >= 3);
+}
+
+// =====================================================================
+// ============== SEASON BESTS ==========================================
+// =====================================================================
+
+export interface SeasonBest { season_number: number; runsLeader: string; runsVal: number; wicketsLeader: string; wicketsVal: number; sixesLeader: string; sixesVal: number; strikeRateLeader: string; srVal: number; econLeader: string; econVal: number; }
+
+export function computeSeasonBests(matches: MatchRow[]): SeasonBest[] {
+  const seasons = new Map<number, MatchRow[]>();
+  for (const m of matches) {
+    const sn = m.season_number ?? 0;
+    if (!seasons.has(sn)) seasons.set(sn, []);
+    seasons.get(sn)!.push(m);
+  }
+  const out: SeasonBest[] = [];
+  for (const [sn, ms] of [...seasons.entries()].sort((a, b) => a[0] - b[0])) {
+    const agg = aggregate(ms);
+    if (!agg.length) continue;
+    const byRuns = [...agg].sort((a, b) => b.runs - a.runs)[0];
+    const byWkts = [...agg].sort((a, b) => b.wickets - a.wickets)[0];
+    const bySixes = [...agg].sort((a, b) => b.sixes - a.sixes)[0];
+    const bySR = [...agg].filter(a => a.balls >= 30).sort((a, b) => (b.runs / b.balls) - (a.runs / a.balls))[0];
+    const byEcon = [...agg].filter(a => a.bowlBalls >= 18).sort((a, b) => (a.bowlRuns / a.bowlBalls) - (b.bowlRuns / b.bowlBalls))[0];
+    out.push({
+      season_number: sn,
+      runsLeader: byRuns?.name ?? "—", runsVal: byRuns?.runs ?? 0,
+      wicketsLeader: byWkts?.name ?? "—", wicketsVal: byWkts?.wickets ?? 0,
+      sixesLeader: bySixes?.name ?? "—", sixesVal: bySixes?.sixes ?? 0,
+      strikeRateLeader: bySR?.name ?? "—", srVal: bySR ? +((bySR.runs / bySR.balls) * 100).toFixed(1) : 0,
+      econLeader: byEcon?.name ?? "—", econVal: byEcon ? +((byEcon.bowlRuns / byEcon.bowlBalls) * 6).toFixed(2) : 0,
+    });
+  }
+  return out;
+}

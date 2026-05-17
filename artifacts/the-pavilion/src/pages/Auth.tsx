@@ -32,7 +32,7 @@ export default function AuthPage() {
     setBusy(true);
     const { error } = await supabase.auth.signUp({
       email, password: pw,
-      options: { emailRedirectTo: `${window.location.origin}/` },
+      options: { emailRedirectTo: `${window.location.origin}/signin` },
     });
     setBusy(false);
     if (error) toast.error(error.message);

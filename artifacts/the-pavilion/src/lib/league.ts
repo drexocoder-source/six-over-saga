@@ -57,15 +57,27 @@ export async function getOrCreateLeague(): Promise<League> {
     existing = data;
   }
   if (!existing) {
-    const { data } = await supabase
+    // Try unclaimed device-id league first
+    const { data: unclaimed } = await supabase
       .from("leagues")
       .select("*")
       .eq("device_id", device_id)
       .is("owner_id", null)
       .maybeSingle();
-    existing = data;
+    existing = unclaimed;
+    // Also try a claimed-by-anyone league on this device (safety net when session expired)
+    if (!existing) {
+      const { data: claimed } = await supabase
+        .from("leagues")
+        .select("*")
+        .eq("device_id", device_id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      existing = claimed;
+    }
     // If signed in and we just found a device-only league, claim it.
-    if (existing && user) {
+    if (existing && user && !existing.owner_id) {
       await supabase.from("leagues").update({ owner_id: user.id }).eq("id", existing.id);
       existing.owner_id = user.id;
     }
