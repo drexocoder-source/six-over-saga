@@ -26,45 +26,130 @@ const router: IRouter = Router();
 const JWT_SECRET = process.env.JWT_SECRET ?? "pavilion-dev-secret-change-in-prod";
 const JWT_EXPIRY = "7d";
 
-/**
- * Tables that are read-only for everyone (global player pool, lookup data).
- * No writes are permitted on these from the client layer.
- */
-const READ_ONLY_TABLES = new Set(["players"]);
+// Fail hard if JWT_SECRET is not set in production — insecure default is dev-only.
+if (process.env.NODE_ENV === "production" && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable must be set in production");
+}
 
 /**
- * Tables scoped to a league — writes require the caller to supply the league_id
- * either as a query param or body field, AND must own that league
- * (matched by JWT user id = owner_id, or device_id header = league device_id).
+ * All tables that carry a league_id foreign key — writes are league-scoped.
+ * Reads are open (simulation game, stats are public).
  */
 const LEAGUE_SCOPED_TABLES = new Set([
-  "seasons", "matches", "squads", "records", "achievements", "trophies",
+  "players", "seasons", "matches", "squads", "records", "achievements", "trophies",
   "custom_records", "rating_history", "ceremony_images", "match_moments",
   "social_accounts", "social_posts", "social_replies", "social_follows",
   "social_likes", "balls",
 ]);
 
 /**
- * Verify the caller owns the league referenced by the request.
- * Returns null on success, or an error string on failure.
+ * Verify the caller owns the league. Returns null on success, error string on failure.
+ * leagueId may be null — in that case ownership cannot be determined and we deny.
  */
 async function verifyLeagueOwnership(
   req: Request,
   leagueId: string | null
 ): Promise<string | null> {
-  if (!leagueId) return "league_id required for mutations";
+  if (!leagueId) return "Unable to determine league ownership — league_id missing";
 
   const [league] = await db.select().from(leaguesTable).where(eq(leaguesTable.id, leagueId)).limit(1);
   if (!league) return "league not found";
 
   const user = extractUser(req);
-  if (user && league.ownerId && league.ownerId === user.id) return null;
-  if (user && !league.ownerId) return null; // unclaimed league — any auth user can act on it
+  // Authenticated user who owns the league (or league is unclaimed — any authed user may act)
+  if (user && (!league.ownerId || league.ownerId === user.id)) return null;
 
+  // Anonymous user with matching device-id (anonymous league ownership)
   const deviceId = req.headers["x-device-id"] as string | undefined;
   if (deviceId && league.deviceId === deviceId) return null;
 
   return "Forbidden: you do not own this league";
+}
+
+/**
+ * Resolve league_id for a mutation.
+ * Priority:
+ *   1. explicit league_id query param
+ *   2. season_id / match_id / account_id in query params → transitive lookup
+ *   3. fetch a matching row and read its league_id (direct or transitive)
+ *
+ * Handles tables with direct league_id AND tables linked through season_id (matches, squads, balls).
+ */
+async function resolveLeagueIdFromRow(
+  _tableName: string,
+  dbTable: any,
+  queryParams: Record<string, string>
+): Promise<string | null> {
+  // 1. Explicit league_id in query params
+  if (queryParams.league_id?.startsWith("eq.")) return queryParams.league_id.slice(3);
+  if (queryParams.league_id && !queryParams.league_id.includes(".")) return queryParams.league_id;
+
+  // 2. Transitive from query params directly (no row fetch needed)
+  // season_id=eq.UUID → seasons.league_id
+  const seasonIdParam = queryParams.season_id;
+  if (seasonIdParam?.startsWith("eq.")) {
+    const seasonId = seasonIdParam.slice(3);
+    const [season] = await db.select().from(seasonsTable).where(eq(seasonsTable.id, seasonId)).limit(1);
+    if (season?.leagueId) return season.leagueId;
+  }
+
+  // match_id=eq.UUID → matches.season_id → seasons.league_id
+  const matchIdParam = queryParams.match_id;
+  if (matchIdParam?.startsWith("eq.")) {
+    const matchId = matchIdParam.slice(3);
+    const [match] = await db.select().from(matchesTable).where(eq(matchesTable.id, matchId)).limit(1);
+    if (match?.seasonId) {
+      const [season] = await db.select().from(seasonsTable).where(eq(seasonsTable.id, match.seasonId)).limit(1);
+      if (season?.leagueId) return season.leagueId;
+    }
+  }
+
+  // account_id=eq.UUID → social_accounts.league_id
+  const accountIdParam = queryParams.account_id;
+  if (accountIdParam?.startsWith("eq.")) {
+    const accountId = accountIdParam.slice(3);
+    const [account] = await db.select().from(socialAccountsTable).where(eq(socialAccountsTable.id, accountId)).limit(1);
+    if (account?.leagueId) return account.leagueId;
+  }
+
+  // 3. Fetch a matching row and extract league_id (direct or transitive)
+  const conditions = buildConditions(dbTable, queryParams);
+  if (!conditions.length) return null;
+
+  const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+  const rows = await db.select().from(dbTable).where(whereClause).limit(1);
+  if (!rows.length) return null;
+  const row = rows[0] as any;
+
+  // Direct league_id on the row
+  if (row.league_id) return row.league_id;
+  if (row.leagueId) return row.leagueId;
+
+  // Transitive: season_id → seasons.league_id
+  const rowSeasonId = row.season_id ?? row.seasonId;
+  if (rowSeasonId) {
+    const [season] = await db.select().from(seasonsTable).where(eq(seasonsTable.id, rowSeasonId)).limit(1);
+    if (season?.leagueId) return season.leagueId;
+  }
+
+  // Transitive: match_id → matches.season_id → seasons.league_id
+  const rowMatchId = row.match_id ?? row.matchId;
+  if (rowMatchId) {
+    const [match] = await db.select().from(matchesTable).where(eq(matchesTable.id, rowMatchId)).limit(1);
+    if (match?.seasonId) {
+      const [season] = await db.select().from(seasonsTable).where(eq(seasonsTable.id, match.seasonId)).limit(1);
+      if (season?.leagueId) return season.leagueId;
+    }
+  }
+
+  // Transitive: account_id → social_accounts.league_id
+  const rowAccountId = row.account_id ?? row.accountId;
+  if (rowAccountId) {
+    const [account] = await db.select().from(socialAccountsTable).where(eq(socialAccountsTable.id, rowAccountId)).limit(1);
+    if (account?.leagueId) return account.leagueId;
+  }
+
+  return null;
 }
 
 const TABLE_MAP: Record<string, any> = {
@@ -394,26 +479,42 @@ router.post("/v1/:table", async (req: Request, res: Response): Promise<void> => 
   const dbTable = TABLE_MAP[tableName];
   if (!dbTable) { res.status(404).json({ error: "Table not found" }); return; }
 
-  if (READ_ONLY_TABLES.has(tableName)) {
-    res.status(403).json({ error: "Forbidden: table is read-only" });
-    return;
-  }
-
   try {
     const body = req.body;
     const rows = Array.isArray(body) ? body : [body];
 
-    // For league-scoped tables, verify ownership before writing
     if (LEAGUE_SCOPED_TABLES.has(tableName)) {
+      // Resolve league_id from row body (direct or transitive through season_id/match_id/account_id)
       const firstRow = rows[0] ?? {};
-      const leagueId: string | null =
-        firstRow.league_id ?? firstRow.leagueId ??
-        (req.query.league_id as string) ?? null;
+      let leagueId: string | null =
+        firstRow.league_id ?? firstRow.leagueId ?? null;
+
+      // Transitive: season_id in body → seasons.league_id (matches, squads, balls)
+      if (!leagueId && (firstRow.season_id || firstRow.seasonId)) {
+        const seasonId = firstRow.season_id ?? firstRow.seasonId;
+        const [season] = await db.select().from(seasonsTable).where(eq(seasonsTable.id, seasonId)).limit(1);
+        leagueId = season?.leagueId ?? null;
+      }
+      // Transitive: match_id in body → matches → seasons.league_id (balls)
+      if (!leagueId && (firstRow.match_id || firstRow.matchId)) {
+        const matchId = firstRow.match_id ?? firstRow.matchId;
+        const [match] = await db.select().from(matchesTable).where(eq(matchesTable.id, matchId)).limit(1);
+        if (match?.seasonId) {
+          const [season] = await db.select().from(seasonsTable).where(eq(seasonsTable.id, match.seasonId)).limit(1);
+          leagueId = season?.leagueId ?? null;
+        }
+      }
+      // Transitive: account_id in body → social_accounts.league_id
+      if (!leagueId && (firstRow.account_id || firstRow.accountId)) {
+        const accountId = firstRow.account_id ?? firstRow.accountId;
+        const [account] = await db.select().from(socialAccountsTable).where(eq(socialAccountsTable.id, accountId)).limit(1);
+        leagueId = account?.leagueId ?? null;
+      }
+
       const err = await verifyLeagueOwnership(req, leagueId);
       if (err) { res.status(403).json({ error: err }); return; }
-    }
-    // For leagues table itself: if creating a new league, only authenticated or device-id callers allowed
-    if (tableName === "leagues") {
+    } else if (tableName === "leagues") {
+      // Creating a new league requires a device-id or JWT
       const user = extractUser(req);
       const deviceId = req.headers["x-device-id"] as string | undefined;
       if (!user && !deviceId) {
@@ -452,33 +553,25 @@ router.patch("/v1/:table", async (req: Request, res: Response): Promise<void> =>
   const dbTable = TABLE_MAP[tableName];
   if (!dbTable) { res.status(404).json({ error: "Table not found" }); return; }
 
-  if (READ_ONLY_TABLES.has(tableName)) {
-    res.status(403).json({ error: "Forbidden: table is read-only" });
-    return;
-  }
-
   try {
     const q2 = req.query as Record<string, string>;
-    // For league-scoped tables: derive league_id from query params or look up the row
+
     if (LEAGUE_SCOPED_TABLES.has(tableName)) {
-      const leagueId: string | null = q2.league_id ?? (req.body?.league_id) ?? null;
+      // Derive league_id: first from explicit query param, then from targeted row
+      const leagueId = await resolveLeagueIdFromRow(tableName, dbTable, q2);
       const err = await verifyLeagueOwnership(req, leagueId);
       if (err) { res.status(403).json({ error: err }); return; }
-    }
-    // For leagues table: require ownership (owner or device)
-    if (tableName === "leagues") {
+    } else if (tableName === "leagues") {
+      // Updating a league — verify by the league id filter
       const leagueId: string | null = q2.id?.startsWith("eq.") ? q2.id.slice(3) : null;
-      if (leagueId) {
-        const err = await verifyLeagueOwnership(req, leagueId);
-        if (err) { res.status(403).json({ error: err }); return; }
-      } else {
-        // No id filter — require auth to prevent mass updates
+      if (!leagueId) {
+        // No specific league targeted — require auth to prevent mass updates
         const user = extractUser(req);
         const deviceId = req.headers["x-device-id"] as string | undefined;
-        if (!user && !deviceId) {
-          res.status(401).json({ error: "Authentication required" });
-          return;
-        }
+        if (!user && !deviceId) { res.status(401).json({ error: "Authentication required" }); return; }
+      } else {
+        const err = await verifyLeagueOwnership(req, leagueId);
+        if (err) { res.status(403).json({ error: err }); return; }
       }
     }
 
@@ -509,19 +602,15 @@ router.delete("/v1/:table", async (req: Request, res: Response): Promise<void> =
   const dbTable = TABLE_MAP[tableName];
   if (!dbTable) { res.status(404).json({ error: "Table not found" }); return; }
 
-  if (READ_ONLY_TABLES.has(tableName)) {
-    res.status(403).json({ error: "Forbidden: table is read-only" });
-    return;
-  }
-
   try {
     const q2 = req.query as Record<string, string>;
+
     if (LEAGUE_SCOPED_TABLES.has(tableName)) {
-      const leagueId: string | null = q2.league_id ?? null;
+      // Derive league_id from explicit param or from targeted row
+      const leagueId = await resolveLeagueIdFromRow(tableName, dbTable, q2);
       const err = await verifyLeagueOwnership(req, leagueId);
       if (err) { res.status(403).json({ error: err }); return; }
-    }
-    if (tableName === "leagues") {
+    } else if (tableName === "leagues") {
       const leagueId: string | null = q2.id?.startsWith("eq.") ? q2.id.slice(3) : null;
       if (!leagueId) { res.status(400).json({ error: "id filter required to delete a league" }); return; }
       const err = await verifyLeagueOwnership(req, leagueId);
