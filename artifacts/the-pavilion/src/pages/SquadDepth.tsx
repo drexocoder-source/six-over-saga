@@ -18,7 +18,22 @@ export default function SquadDepth() {
   useEffect(() => { (async () => {
     const lg = await getOrCreateLeague(); setLeague(lg);
     const { data } = await supabase.from("seasons").select("*").eq("league_id", lg.id).order("season_number", { ascending: false });
-    setSeasons(data ?? []); if (data?.length) setSeasonId(data[0].id);
+    const allSeasons = data ?? [];
+    // Deduplicate: keep the best season per season_number (prefer done, then most recent)
+    const best: Record<number, any> = {};
+    allSeasons.forEach((season: any) => {
+      const n = season.season_number;
+      const existing = best[n];
+      if (!existing) { best[n] = season; return; }
+      const isDone = season.auction_status === "done";
+      const existingDone = existing.auction_status === "done";
+      if (isDone && !existingDone) { best[n] = season; return; }
+      if (!isDone && existingDone) return;
+      if (season.created_at > existing.created_at) best[n] = season;
+    });
+    const deduped = Object.values(best).sort((a: any, b: any) => b.season_number - a.season_number);
+    setSeasons(deduped);
+    if (deduped.length) setSeasonId(deduped[0].id);
     setLoading(false);
   })(); }, []);
 

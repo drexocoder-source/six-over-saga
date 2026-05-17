@@ -100,7 +100,7 @@ export default function ChairmanChat({ league, context }: { league: League; cont
         <Bot className="w-4 h-4 text-primary"/>
         <div>
           <div className="font-display text-base">Chairman AI Assistant</div>
-          <div className="text-[10px] text-muted-foreground">Knows your league inside-out · powered by Lovable AI</div>
+          <div className="text-[10px] text-muted-foreground">Knows your league inside-out · powered by AI</div>
         </div>
       </div>
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">

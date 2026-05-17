@@ -35,6 +35,32 @@ import { formRating, type FormEntry } from "@/lib/form";
 
 type Phase = "loading" | "toss" | "xi" | "openers" | "live" | "innings_break" | "needs_bowler" | "needs_batter" | "done";
 
+// ─── Live Match Events ───────────────────────────────────────────────────────
+const LIVE_EVENTS = [
+  "📺 DRS REVIEW called! Replays checking... Umpire's call stands. Not out!",
+  "🌧️ Brief drizzle forces a ground-staff check — covers come on for 2 minutes. Play resumes!",
+  "🎉 Mexican wave sweeps the entire stadium! The atmosphere is absolutely ELECTRIC right now!",
+  "😬 Batter takes a nasty bouncer on the helmet — medical check! Helmet replaced, all good, play on.",
+  "🔥 Intense mid-pitch chat between the captain and bowler. Tactical tweak incoming!",
+  "📸 The TV director cuts to the coach in the dugout — arms folded, jaw tight. The pressure is real.",
+  "💥 That shot has landed in the SECOND TIER! Ball tracker estimates 108 metres!",
+  "🎯 Captain sets an ultra-attacking field — three slips, short leg AND silly point. Batter's challenge awaits.",
+  "🏃 Direct hit! But the batter dives and makes their ground. The fielder walked off half-celebrating. Disaster!",
+  "🌟 Ground staff rush on to fix a deep footmark on a good length. Brief delay. Players cool down.",
+  "👊 Fist-pump from the captain at mid-off! Energy injection for the bowling side!",
+  "📡 Commentators speechless after that sequence. 'Scenes you simply cannot script.'",
+  "🎙️ The groundsman is having a heated discussion with the umpires about the pitch condition.",
+  "⚡ IMPACT SUBSTITUTE warming up on the boundary! The crowd starts buzzing about who's coming on.",
+  "🎸 The DJ in the stands drops a banger as the fielder collects the ball. Stadium vibes: 11/10.",
+  "📣 CROWD ERUPTION as the ball beats the bat for a dot ball. The bowler soaks up the noise!",
+  "🏟️ A banner in the crowd reads 'WE BELIEVE' — inspiring scenes from the loyal fans.",
+  "🤿 Brilliant diving stop at deep mid-wicket! Full-length dive, saved THREE runs. Incredible fielding.",
+  "🌡️ The pitch is starting to offer some real variable bounce. This match is far from over.",
+  "🎯 Back-to-back dot balls — pressure building, this could be a wicket-maiden in the making!",
+];
+
+function pickLiveEvent() { return LIVE_EVENTS[Math.floor(Math.random() * LIVE_EVENTS.length)]; }
+
 interface SquadMember extends PlayerLite { is_captain: boolean; is_vice_captain: boolean; price: number; attrs?: PlayerAttrs; personality?: string; form?: FormEntry[]; }
 
 type ScoreProfile = "150+" | "200+" | "250+" | "300+";
@@ -166,16 +192,44 @@ export default function Match() {
 
   const tcolor = (id: string) => teamColor(id, league?.teams);
 
+  // Fetch real AI commentary for a big event and upgrade the latest commentary line
+  function upgradeWithAICommentary(args: {
+    event: string; batter: string; bowler: string; runs: number;
+    over: string; wickets: number; total: number; target?: number;
+  }) {
+    fetch(`${window.location.origin}/functions/v1/ai-commentary`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(args),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { line: string } | null) => {
+        if (!data?.line) return;
+        setCommentary(c => {
+          if (!c.length) return c;
+          const copy = [...c];
+          // Upgrade the most recent item — replace the part after " — "
+          const sep = copy[0].indexOf(" — ");
+          if (sep !== -1) copy[0] = copy[0].slice(0, sep + 3) + data.line;
+          return copy;
+        });
+      })
+      .catch(() => {/* silent */});
+  }
+
   // ---------- LOAD ----------
   useEffect(() => {
     (async () => {
       if (!matchId) { nav("/schedule"); return; }
       const lg = await getOrCreateLeague();
       setLeague(lg);
-      const { data: m } = await supabase.from("matches").select("*").eq("id", matchId).single();
-      if (!m) { toast.error("Match not found"); nav("/schedule"); return; }
+      const { data: mRaw } = await supabase.from("matches").select("*").eq("id", matchId).single();
+      // Defensive: some postgrest adapters may return an array instead of a single object
+      const m = Array.isArray(mRaw) ? mRaw[0] : mRaw;
+      if (!m || !m.team_a || !m.team_b) { toast.error("Match not found"); nav("/schedule"); return; }
       setMatch(m);
-      const { data: season } = await supabase.from("seasons").select("season_number").eq("id", m.season_id).single();
+      const { data: seasonRaw } = await supabase.from("seasons").select("*").eq("id", m.season_id).single();
+      const season = Array.isArray(seasonRaw) ? seasonRaw[0] : seasonRaw;
       setSeasonNum(season?.season_number ?? 0);
 
       // Load squads for both teams
@@ -310,16 +364,17 @@ export default function Match() {
     if (phase === "live" && !autoPlay) {
       setAutoPlay(true);
     }
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoMatch, phase, toss, match, league, squads, xi, engine]);
 
   // ---------- TOSS ----------
   function doToss() {
     if (!match) return;
-    const winner = Math.random() < 0.5 ? match.team_a : match.team_b;
+    const winner = (Math.random() < 0.5 ? match.team_a : match.team_b) as string;
     const decision: "bat" | "bowl" = Math.random() < 0.55 ? "bowl" : "bat";
     setToss({ winner, decision });
-    supabase.from("matches").update({ toss_winner: winner, toss_decision: decision, status: "live" }).eq("id", matchId);
+    supabase.from("matches").update({ toss_winner: winner, toss_decision: decision, status: "live" }).eq("id", matchId!);
     const cap = squads[winner]?.find(s => s.is_captain)?.name ?? "Captain";
     setCommentary(c => [
       `🎤 ${cap}: "We'd like to ${decision} first. The pitch looks good and we want to put runs on the board." 🏏`,
@@ -500,6 +555,30 @@ export default function Match() {
       isPowerplay, style: aiStyle,
     });
     processBallEvent(event, text);
+
+    // ─── Live Event Injection ─────────────────────────────────────────────────
+    // ~6% chance to inject an atmospheric stadium moment between balls
+    if (Math.random() < 0.06 && !autoMatch) {
+      const evText = pickLiveEvent();
+      setCommentary(c => [`🎪 ${evText}`, ...c].slice(0, 300));
+    }
+
+    // For big moments, upgrade the template line with real AI commentary (async, silent fallback)
+    // Skip during full-speed autoMatch to avoid flooding the AI endpoint
+    const isBigMoment = event.kind === "wicket" || runs === 6 || (runs === 4 && isDeath);
+    if (isBigMoment && !autoMatch && engine) {
+      const inn = engine.currentInnings === 1 ? engine.innings1 : engine.innings2!;
+      upgradeWithAICommentary({
+        event: event.kind === "wicket" ? "WICKET" : runs === 6 ? "SIX" : "FOUR",
+        batter: striker.name,
+        bowler: bowler.name,
+        runs,
+        over: ballsToOvers(inn.legalBalls),
+        wickets: inn.wickets,
+        total: inn.runs,
+        target: engine.target ?? undefined,
+      });
+    }
   }
 
   // ---------- New batter / bowler ----------
@@ -740,7 +819,7 @@ export default function Match() {
   const headBlock = (
     <div className="flex items-center justify-between flex-wrap gap-3">
       <div>
-        <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {seasonNum} • MATCH {match.match_number}{match.stage === "final" && " • FINAL"}</div>
+        <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {seasonNum > 0 ? seasonNum : "—"} • MATCH {match.match_number ?? "—"}{match.stage === "final" && " • FINAL"}</div>
         <div className="font-display text-3xl md:text-4xl tracking-wider">
           <span style={{ color: tcolor(match.team_a) }}>{match.team_a}</span>
           <span className="text-muted-foreground mx-2">vs</span>

@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { BookOpen, Gavel, Calendar, Play, BarChart3, Award, Settings2, Home, Users, Swords, Layers, User, Crown, MessageSquare, History, Repeat, ScrollText, Trophy } from "lucide-react";
+import { BookOpen, Gavel, Calendar, Play, BarChart3, Award, Settings2, Home, Users, Swords, Layers, User, Crown, MessageSquare, History, Repeat, ScrollText, Trophy, GitBranch } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
@@ -39,8 +39,9 @@ const groups: { label: string; items: { title: string; url: string; icon: any }[
   {
     label: "Community",
     items: [
-      { title: "Social",   url: "/social",   icon: MessageSquare },
-      { title: "Chairman", url: "/chairman", icon: Settings2 },
+      { title: "Social",     url: "/social",     icon: MessageSquare },
+      { title: "Multiverse", url: "/multiverse", icon: GitBranch },
+      { title: "Chairman",   url: "/chairman",   icon: Settings2 },
     ],
   },
 ];

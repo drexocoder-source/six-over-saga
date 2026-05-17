@@ -477,6 +477,18 @@ router.get("/v1/:table", async (req: Request, res: Response): Promise<void> => {
     const { joins } = parseSelectParam(q.select);
     const joined = await resolveJoins(tableName, snaked, joins);
 
+    // Supabase JS .single() sends Accept: application/vnd.pgrst.object+json
+    // Real PostgREST returns a single JSON object — we must do the same.
+    const acceptHeader = (req.headers["accept"] as string) ?? "";
+    if (acceptHeader.includes("application/vnd.pgrst.object+json")) {
+      if (joined.length === 0) {
+        res.status(406).json({ code: "PGRST116", details: "The result contains 0 rows", hint: null, message: "JSON object requested, multiple (or no) rows returned" });
+        return;
+      }
+      res.json(joined[0]);
+      return;
+    }
+
     // Determine response format based on Prefer header
     const prefer = (req.headers["prefer"] as string) ?? "";
     if (prefer.includes("return=representation") && joined.length === 1) {
@@ -646,13 +658,6 @@ router.delete("/v1/:table", async (req: Request, res: Response): Promise<void> =
     req.log.error({ err }, "DELETE /rest/v1/:table error");
     res.status(500).json({ error: "Internal server error" });
   }
-});
-
-// ============ FUNCTIONS (/functions/v1/...) ============
-
-router.post("/v1/:name", async (req: Request, res: Response): Promise<void> => {
-  // Image generation — returns 501, app handles it gracefully
-  res.status(501).json({ error: "Function not available in Replit deployment" });
 });
 
 export default router;

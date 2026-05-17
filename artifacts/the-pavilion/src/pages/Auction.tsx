@@ -159,7 +159,8 @@ export default function Auction() {
   }
 
   async function simulateFullAuction() {
-    if (!settings || !season || !current) return;
+    if (!settings || !season) return;
+    if (!current && pool.length === 0) { toast.error("No players left to auction"); return; }
     setBidding(true);
     toast.message("🤖 Running full auction simulation…");
 
@@ -168,7 +169,7 @@ export default function Auction() {
     const localSquads: Record<string, SquadEntry[]> = {};
     Object.keys(squads).forEach(k => { localSquads[k] = [...squads[k]]; });
 
-    const queue: AuctionPlayer[] = [current, ...pool.slice(1)];
+    const queue: AuctionPlayer[] = current ? [current, ...pool.slice(1)] : [...pool];
     const sold: { season_id: string; team_id: string; player_id: string; price: number }[] = [];
     const unsold: AuctionPlayer[] = [];
 
@@ -191,7 +192,7 @@ export default function Auction() {
       }
     }
 
-    // Auto-fill anyone still below squadMin from the unsold pile (and re-look at remaining)
+    // Auto-fill anyone still below squadMin from the unsold pile
     const states: TeamPurseState[] = teams.map(t => ({
       teamId: t.id,
       purse: localPurses[t.id] ?? 0,
@@ -207,28 +208,79 @@ export default function Auction() {
       });
     });
 
-    // Persist all squad rows in one shot
-    if (sold.length) await supabase.from("squads").insert(sold);
+    // Persist in small chunks and check for errors
+    const CHUNK = 100;
+    let insertFailed = false;
+    for (let i = 0; i < sold.length; i += CHUNK) {
+      const chunk = sold.slice(i, i + CHUNK);
+      const { error } = await supabase.from("squads").insert(chunk);
+      if (error) {
+        console.error("[Auction] Squad insert error:", error);
+        toast.error(`Failed to save players (chunk ${i / CHUNK + 1}): ${(error as any).message ?? JSON.stringify(error)}`);
+        insertFailed = true;
+        break;
+      }
+    }
 
-    setSquads(localSquads);
-    setPurses(localPurses);
-    setPool([]);
-    setCurrent(null);
-    setBidResult(null);
+    if (!insertFailed) {
+      // Re-fetch from DB to get real server-generated IDs for downstream captain/VC assignment
+      const { data: freshSquads } = await supabase.from("squads").select("*, players(name,role,rating)").eq("season_id", season.id);
+      if (freshSquads) {
+        const newSq: Record<string, SquadEntry[]> = {};
+        teams.forEach((t) => { newSq[t.id] = []; });
+        freshSquads.forEach((row: any) => {
+          const ent: SquadEntry = {
+            id: row.id, player_id: row.player_id, name: row.players?.name ?? row.player_id,
+            role: row.players?.role, rating: row.players?.rating ?? 0,
+            price: Number(row.price), is_captain: row.is_captain, is_vice_captain: row.is_vice_captain,
+          };
+          (newSq[row.team_id] ??= []).push(ent);
+        });
+        setSquads(newSq);
+      } else {
+        setSquads(localSquads);
+      }
+      setPurses(localPurses);
+      setPool([]);
+      setCurrent(null);
+      setBidResult(null);
+      toast.success(`✅ Auction complete — ${sold.length} players sold across ${teams.length} teams`);
+    }
+
     setBidding(false);
-    toast.success(`✅ Auction complete — ${sold.length} players sold across ${teams.length} teams`);
   }
 
   async function finalizeAuction() {
     if (!season) return;
-    // Auto-assign captain (highest rating) & VC (2nd highest) per team
-    for (const t of teams) {
-      const sq = (squads[t.id] ?? []).slice().sort((a,b) => b.rating - a.rating);
-      if (sq[0]) await supabase.from("squads").update({ is_captain: true }).eq("id", sq[0].id);
-      if (sq[1]) await supabase.from("squads").update({ is_vice_captain: true }).eq("id", sq[1].id);
+
+    // Re-fetch actual DB squad rows so we have real server-generated IDs
+    const { data: dbSquads, error: fetchErr } = await supabase
+      .from("squads").select("id,team_id,player_id,price").eq("season_id", season.id);
+    if (fetchErr || !dbSquads?.length) {
+      toast.error("No squads saved yet — please run the auction first.");
+      return;
     }
+
+    // Group by team and assign captain (highest rated) / VC (2nd highest) using DB row ids
+    const byTeam: Record<string, any[]> = {};
+    dbSquads.forEach((row: any) => { (byTeam[row.team_id] ??= []).push(row); });
+
+    for (const t of teams) {
+      const sq = (byTeam[t.id] ?? []);
+      if (!sq.length) continue;
+      // Sort by rating from local squads state (DB rows don't carry rating in this fetch)
+      const localByPlayerId: Record<string, number> = {};
+      (squads[t.id] ?? []).forEach(s => { localByPlayerId[s.player_id] = s.rating; });
+      const sorted = [...sq].sort((a: any, b: any) => (localByPlayerId[b.player_id] ?? 0) - (localByPlayerId[a.player_id] ?? 0));
+      // Clear old assignments first
+      await supabase.from("squads").update({ is_captain: false, is_vice_captain: false })
+        .eq("season_id", season.id).eq("team_id", t.id);
+      if (sorted[0]) await supabase.from("squads").update({ is_captain: true }).eq("id", sorted[0].id);
+      if (sorted[1]) await supabase.from("squads").update({ is_vice_captain: true }).eq("id", sorted[1].id);
+    }
+
     await supabase.from("seasons").update({ auction_status: "done", status: "league" }).eq("id", season.id);
-    toast.success("Auction complete! Generating schedule…");
+    toast.success("Auction locked in! Generating schedule…");
     nav("/schedule");
   }
 

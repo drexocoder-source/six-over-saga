@@ -35,8 +35,24 @@ export default function Squads() {
     const lg = await getOrCreateLeague();
     setLeague(lg);
     const { data: s } = await supabase.from("seasons").select("*").eq("league_id", lg.id).order("season_number", { ascending: false });
-    setSeasons(s ?? []);
-    if (s && s.length) { setSeasonId(s[0].id); setSeasonNum(s[0].season_number ?? 1); }
+    const allSeasons = s ?? [];
+    // Deduplicate: keep only the best season per season_number
+    // Prefer auction_status=done, then most recently created
+    const best: Record<number, any> = {};
+    allSeasons.forEach((season: any) => {
+      const n = season.season_number;
+      const existing = best[n];
+      if (!existing) { best[n] = season; return; }
+      const isDone = season.auction_status === "done";
+      const existingDone = existing.auction_status === "done";
+      if (isDone && !existingDone) { best[n] = season; return; }
+      if (!isDone && existingDone) return;
+      // Both same done-status — pick most recently created
+      if (season.created_at > existing.created_at) best[n] = season;
+    });
+    const deduped = Object.values(best).sort((a: any, b: any) => b.season_number - a.season_number);
+    setSeasons(deduped);
+    if (deduped.length) { setSeasonId(deduped[0].id); setSeasonNum(deduped[0].season_number ?? 1); }
     setLoading(false);
   })(); }, []);
 

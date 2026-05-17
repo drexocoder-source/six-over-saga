@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles, Bot } from "lucide-react";
+import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles, Bot, AlertTriangle, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import ChairmanChat, { type ChairmanChatContext } from "@/components/ChairmanChat";
 
@@ -27,6 +27,36 @@ export default function Chairman() {
   const [newPlayer, setNewPlayer] = useState({ name: "", role: "BAT", base_price: 1, rating: 78, nationality: "IND" });
   const [newRule, setNewRule] = useState<any>({ oversPerInnings: 20, allOutWickets: 10, squadMin: 18, squadMax: 25, playingXI: 11, startingPurse: 100, powerplayEnabled: true, powerplayOvers: 6, overseasMaxXI: 4, impactPlayerEnabled: true, scoreProfile: "200+" });
   const [newRec, setNewRec] = useState({ name: "", description: "", scope: "batting", metric: "runs", threshold: "" as string, higher_is_better: true, emoji: "🏆" });
+
+  const [busy, setBusy] = useState(false);
+
+  async function hardReset() {
+    if (!league) return;
+    if (!window.confirm("DELETE all seasons, matches, squads & stats? Your player pool stays intact. This CANNOT be undone.")) return;
+    setBusy(true);
+    try {
+      const { data: seasons } = await supabase.from("seasons").select("id").eq("league_id", league.id);
+      const ids = (seasons ?? []).map((s: any) => s.id);
+      if (ids.length) {
+        await supabase.from("squads").delete().in("season_id", ids);
+        await supabase.from("matches").delete().in("season_id", ids);
+        await supabase.from("balls").delete().in("season_id", ids);
+        await supabase.from("match_moments").delete().in("season_id", [...ids].map(()=>ids[0])).eq("league_id", league.id);
+      }
+      await supabase.from("seasons").delete().eq("league_id", league.id);
+      await supabase.from("records").delete().eq("league_id", league.id);
+      await supabase.from("achievements").delete().eq("league_id", league.id);
+      await supabase.from("trophies").delete().eq("league_id", league.id);
+      await supabase.from("ceremony_images").delete().eq("league_id", league.id);
+      await supabase.from("rating_history").delete().eq("league_id", league.id);
+      await supabase.from("social_posts").delete().eq("league_id", league.id);
+      await supabase.from("social_accounts").delete().eq("league_id", league.id);
+      toast.success("League reset! Start a fresh Season 1 from the Dashboard.");
+    } catch (e: any) {
+      toast.error("Reset failed: " + (e?.message ?? "unknown error"));
+    }
+    setBusy(false);
+  }
 
   const reload = async () => {
     const lg = await getOrCreateLeague();
@@ -68,8 +98,8 @@ export default function Chairman() {
   const addTeam = async () => {
     if (!league) return;
     const id = newTeam.id.trim().toUpperCase();
-    if (!id || !newTeam.shortName || !newTeam.fullName) return toast.error("Fill all team fields");
-    if (league.teams.some((t: any) => t.id === id)) return toast.error("Team ID already exists");
+    if (!id || !newTeam.shortName || !newTeam.fullName) { toast.error("Fill all team fields"); return; }
+    if (league.teams.some((t: any) => t.id === id)) { toast.error("Team ID already exists"); return; }
     const hsl = hexToHsl(newTeam.color);
     const teams = [...league.teams, { id, shortName: newTeam.shortName, fullName: newTeam.fullName, colorVar: id.toLowerCase(), primary: `hsl(${hsl})` }];
     await supabase.from("leagues").update({ teams: teams as any, updated_at: new Date().toISOString() }).eq("id", league.id);
@@ -89,7 +119,7 @@ export default function Chairman() {
 
   const addPlayer = async () => {
     if (!league) return;
-    if (!newPlayer.name) return toast.error("Player name required");
+    if (!newPlayer.name) { toast.error("Player name required"); return; }
     await supabase.from("players").insert({ ...newPlayer, league_id: league.id });
     toast.success(`👤 ${newPlayer.name} added to the pool`);
     setNewPlayer({ name: "", role: "BAT", base_price: 1, rating: 78, nationality: "IND" });
@@ -112,7 +142,7 @@ export default function Chairman() {
 
   const addCustomRec = async () => {
     if (!league) return;
-    if (!newRec.name) return toast.error("Record name required");
+    if (!newRec.name) { toast.error("Record name required"); return; }
     await supabase.from("custom_records").insert({
       league_id: league.id,
       name: newRec.name, description: newRec.description, scope: newRec.scope, metric: newRec.metric,
@@ -437,6 +467,26 @@ export default function Chairman() {
             {customRecs.length === 0 && (
               <Card className="p-8 text-center gradient-card border-border/60 md:col-span-2 text-muted-foreground text-sm">No custom records yet — invent one above ✍️</Card>
             )}
+          </div>
+
+          {/* Danger Zone */}
+          <div className="mt-8 pt-6 border-t border-destructive/20">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle className="w-4 h-4 text-destructive"/>
+              <span className="text-sm font-semibold text-destructive tracking-wider uppercase">Danger Zone</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              This will delete <strong>all seasons, matches, squads, stats, records and social data</strong> for your league. Your player pool (809 players) will be kept intact so you can start a fresh Season 1 immediately. This action is irreversible.
+            </p>
+            <Button
+              variant="destructive"
+              disabled={busy}
+              onClick={hardReset}
+              className="bg-destructive/10 text-destructive border border-destructive/40 hover:bg-destructive hover:text-destructive-foreground"
+            >
+              {busy ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <RotateCcw className="w-4 h-4 mr-2"/>}
+              Delete Everything & Start From Zero
+            </Button>
           </div>
         </TabsContent>
       </Tabs>

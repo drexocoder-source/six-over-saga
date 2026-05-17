@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import postgrestRouter from "./routes/postgrest";
+import functionsRouter from "./routes/functions";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -36,6 +37,8 @@ app.use("/api", router);
 // PostgREST-compatible routes (Supabase JS client uses these paths)
 app.use("/rest", postgrestRouter);
 app.use("/auth", postgrestRouter);
-app.use("/functions", postgrestRouter);
+
+// AI edge functions (chairman-chat, generate-image, ai-commentary)
+app.use("/functions", functionsRouter);
 
 export default app;

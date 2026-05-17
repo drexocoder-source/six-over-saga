@@ -10,6 +10,7 @@ import {
   Trophy, Gavel, Calendar, Play, Loader2, Sparkles,
   TrendingUp, Users, Zap, ChevronRight, BarChart3, Award, Shirt
 } from "lucide-react";
+import { toast } from "sonner";
 import { JerseyCard } from "@/components/JerseyCard";
 
 export default function Dashboard() {
@@ -48,6 +49,11 @@ export default function Dashboard() {
 
   async function startNewSeason() {
     if (!league) return;
+    // Guard: if there's already an active (non-done) season, go there instead of creating a duplicate
+    if (activeSeason && activeSeason.status !== "done") {
+      nav(activeSeason.auction_status !== "done" ? "/auction" : "/schedule");
+      return;
+    }
     const nextNum = (activeSeason?.season_number ?? 0) + 1;
     const { data, error } = await supabase.from("seasons").insert({
       league_id: league.id,
@@ -56,7 +62,8 @@ export default function Dashboard() {
       auction_status: "pending",
       status: "auction",
     }).select().single();
-    if (!error && data) nav("/auction");
+    if (error) { toast.error("Failed to start season"); return; }
+    if (data) nav("/auction");
   }
 
   if (loading) return (

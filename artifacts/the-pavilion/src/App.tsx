@@ -23,6 +23,7 @@ import SeasonHistory from "./pages/SeasonHistory";
 import Retention from "./pages/Retention";
 import Scorecard from "./pages/Scorecard";
 import Ceremony from "./pages/Ceremony";
+import Multiverse from "./pages/Multiverse";
 import AuthPage from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -58,6 +59,7 @@ const App = () => (
               <Route path="/social/:handle" element={<SocialProfile />} />
               <Route path="/ceremony" element={<Ceremony />} />
               <Route path="/chairman" element={<Chairman />} />
+              <Route path="/multiverse" element={<Multiverse />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

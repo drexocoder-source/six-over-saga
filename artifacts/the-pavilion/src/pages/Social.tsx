@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getOrCreateLeague, type League } from "@/lib/league";
 import {
-  ensureSocialAccounts, generateRandomPosts, getFeed, listAccounts, likePost, followAccount, createPost,
+  ensureSocialAccounts, ensureMemerAccounts, generateRandomPosts, generateDramaLeaks,
+  getFeed, listAccounts, likePost, followAccount, createPost,
   pfpFor, type SocialAccount,
 } from "@/lib/social";
 import { Card } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Heart, MessageCircle, Repeat2, Sparkles, BadgeCheck, Send, TrendingUp, Users, Search } from "lucide-react";
+import { Loader2, Heart, MessageCircle, Repeat2, Sparkles, BadgeCheck, Send, TrendingUp, Users, Search, Flame, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,9 +33,11 @@ export default function Social() {
   useEffect(() => { (async () => {
     const lg = await getOrCreateLeague(); setLeague(lg);
     const created = await ensureSocialAccounts(lg.id, { fans: 80 });
+    await ensureMemerAccounts(lg.id);
     if (created > 0) {
       // first time → seed initial posts
       await generateRandomPosts(lg.id, 40);
+      await generateDramaLeaks(lg.id, 8);
     }
     await refresh(lg.id);
     setLoading(false);
@@ -83,6 +86,15 @@ export default function Social() {
     toast.success("Fresh posts loaded");
   }
 
+  async function genDrama() {
+    if (!league) return;
+    setBusy(true);
+    await generateDramaLeaks(league.id, 10);
+    await refresh(league.id);
+    setBusy(false);
+    toast.success("Dressing-room drama incoming 🔥");
+  }
+
   async function postNow() {
     if (!league || !me || !composer.trim()) return;
     await createPost(league.id, me.id, composer.trim(), { type: "text" });
@@ -122,10 +134,16 @@ export default function Social() {
           <h1 className="font-display text-4xl tracking-wider">IPL Social</h1>
           <p className="text-sm text-muted-foreground mt-1">Where fans, players and teams talk smack about every match.</p>
         </div>
-        <Button onClick={genMore} disabled={busy} variant="outline" className="border-primary/40 text-primary">
-          {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <Sparkles className="w-4 h-4 mr-2"/>}
-          Generate Posts
-        </Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={genMore} disabled={busy} variant="outline" className="border-primary/40 text-primary">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <Sparkles className="w-4 h-4 mr-2"/>}
+            Generate Posts
+          </Button>
+          <Button onClick={genDrama} disabled={busy} variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground">
+            {busy ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : <Flame className="w-4 h-4 mr-2"/>}
+            Drop Drama
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -181,7 +199,9 @@ export default function Social() {
               <TabsTrigger value="all">For You</TabsTrigger>
               <TabsTrigger value="meme">Memes</TabsTrigger>
               <TabsTrigger value="photo">Photos</TabsTrigger>
-              <TabsTrigger value="announcement">News</TabsTrigger>
+              <TabsTrigger value="announcement">
+                <Zap className="w-3 h-3 mr-1"/>News & Leaks
+              </TabsTrigger>
               <TabsTrigger value="text">Text</TabsTrigger>
             </TabsList>
           </Tabs>

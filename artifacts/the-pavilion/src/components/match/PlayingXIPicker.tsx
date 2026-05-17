@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ interface Props {
 }
 
 export function PlayingXIPicker({ teamA, teamB, squadA, squadB, playingXISize, teamColorFn, onConfirm }: Props) {
+  const nav = useNavigate();
   const [selA, setSelA] = useState<Set<string>>(() => new Set(squadA.slice(0, playingXISize).map(p=>p.id)));
   const [selB, setSelB] = useState<Set<string>>(() => new Set(squadB.slice(0, playingXISize).map(p=>p.id)));
   const [career, setCareer] = useState<CareerBundle>({ byPlayer: {} });
@@ -56,6 +58,16 @@ export function PlayingXIPicker({ teamA, teamB, squadA, squadB, playingXISize, t
         <div className="font-display text-2xl" style={{ color: teamColorFn(name) }}>{name}</div>
         <Badge variant="outline" className={sel.size === playingXISize ? "border-primary text-primary" : ""}>{sel.size}/{playingXISize}</Badge>
       </div>
+      {squad.length === 0 && (
+        <div className="text-center py-8 text-muted-foreground text-sm">
+          <div className="text-2xl mb-2">🏏</div>
+          <div className="font-medium text-foreground">No squad found for {name}</div>
+          <div className="text-xs mt-1 mb-4 opacity-70">You need to run the auction before playing matches.</div>
+          <Button size="sm" variant="outline" className="border-primary/50 text-primary hover:bg-primary/10" onClick={() => nav("/auction")}>
+            Go to Auction →
+          </Button>
+        </div>
+      )}
       <div className="space-y-1 max-h-[520px] overflow-auto pr-1">
         {squad.map(p => {
           const on = sel.has(p.id);

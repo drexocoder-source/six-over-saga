@@ -207,6 +207,131 @@ const OFFICIAL_TEMPLATES = [
 
 const HASHTAGS = ["IPLT2","TwoOverThunder","CricketTwitter","MatchDay","T2Live","BleedBlue","WhistlePodu","HallaBol","PlayBold"];
 
+// ─── Drama / Leaks templates ────────────────────────────────────────────────
+
+const LEAK_TEMPLATES = [
+  "🚨 SOURCES CLAIM: Star batter unhappy with captaincy decisions. Dressing-room tension at an all-time high.",
+  "💥 LEAKED: Senior player reportedly asked the team management for a trade before the next auction.",
+  "🔴 BREAKING EXCLUSIVE: Coach and captain had heated exchange after last loss. Staff divided.",
+  "📲 INSIDER: Mystery player seen with rival franchise's scouts. Loyalties in question.",
+  "⚠️ RUMOUR MILL: {PLAYER} told teammates he might retire if team misses playoffs this season.",
+  "🎯 DRESSING-ROOM LEAK: Team WhatsApp group went silent for 48 hours after dressing-room bust-up.",
+  "🤫 WHISPERS: Junior player snubbed by captain in training session sparks morale crisis.",
+  "💔 EXCLUSIVE: {PLAYER} skipped optional practice — 'personal reasons' cited by management.",
+  "🏏 SHOCK CLAIM: Ex-captain still has influence over squad selection. Current skipper frustrated.",
+  "🌡️ TEMP RISING: {TEAM} camp on edge as overseas signings demand more batting slots.",
+  "📸 PAPARAZZI SNAP: {PLAYER} spotted at {TEAM} team dinner — transfer? Friendship? Espionage?",
+  "💸 SALARY DRAMA: Three {TEAM} players unhappy with contract renegotiation offers.",
+];
+
+const CONTROVERSY_TEMPLATES = [
+  "HOT TAKE 🔥 {PLAYER} shouldn't be captain. The numbers don't lie. The whole internet agrees.",
+  "Unpopular opinion: {TEAM} should blow up the squad and start fresh. Change everything.",
+  "Is {PLAYER} overrated? Scored 0 in the last clutch game. We need to talk.",
+  "The captaincy debate is BACK. {PLAYER} vs the world. Comment your pick 👇",
+  "Bold prediction: {TEAM} finishes bottom half this season. Their auction was a disaster.",
+  "Why does {TEAM} keep bowling {PLAYER} at death? Someone needs to be held accountable.",
+  "PSA: Cricket fans need to stop worshipping {PLAYER}. Average stats, average player.",
+  "Not me crying at {TEAM} collapses every single match. It's not love anymore, it's trauma 😭",
+];
+
+const RETIREMENT_TEMPLATES = [
+  "💔 Hearing whispers {PLAYER} might announce retirement before the next season. A legend's final chapter.",
+  "'{PLAYER} looks different this season. Something in the eyes.' — team insider. We're not ready.",
+  "Imagine if {PLAYER} played one final IPL season. Would cry honestly. The GOAT deserves a trophy exit.",
+  "They said he was done three years ago. {PLAYER} keeps proving everyone wrong. Last dance incoming?",
+];
+
+const TRANSFER_TEMPLATES = [
+  "TRANSFER ALERT 🚨 Big name reportedly unhappy at {TEAM}. Auction fee might not be enough to retain.",
+  "The {PLAYER}-to-{TEAM2} rumors refuse to die. Both teams declining to comment speaks volumes.",
+  "Agent of {PLAYER} seen in conversation with {TEAM} scouts. Something is brewing.",
+  "Franchise sources: 'We're always open to the right deal.' Translation: {PLAYER} is available.",
+];
+
+const MEMER_HANDLES = [
+  { handle: "boundary_bro_official", name: "Boundary Bro 🏏", bio: "Every 4 hits me different 🚀 Cricket memes 24/7" },
+  { handle: "wicket_watchers", name: "Wicket Watchers", bio: "We document every collapse. There are MANY 👀" },
+  { handle: "drs_dad", name: "DRS Dad", bio: "Always reviewing. Always wrong. Always loud 📺" },
+  { handle: "powerplay_police", name: "Powerplay Police 🚓", bio: "Holding teams accountable for wasting powerplay since forever" },
+  { handle: "noball_narrator", name: "No-Ball Narrator", bio: "No-balls cost matches. I keep receipts 📋" },
+  { handle: "slow_over_rate_watcher", name: "Over-Rate Oracle", bio: "They NEVER bowl on time. Where's the fine 😤" },
+  { handle: "yorker_enthusiast", name: "Yorker Fan Club", bio: "Clean bowled. Perfect length. I'm in tears 😭🎯" },
+  { handle: "slog_sweep_king", name: "Slog Sweep Connoisseur", bio: "Any shot that's technically wrong but goes for 6 = art 🎨" },
+  { handle: "caught_in_the_deep", name: "Deep Square Stan", bio: "Longest running fan of the deep square leg fielder 🤝" },
+  { handle: "umpire_truther", name: "Umpire Truther 👁️", bio: "The umpire is never wrong. Except always. 📢" },
+  { handle: "cricket_conspiracy_acc", name: "Cricket Conspiracy Acc", bio: "The pitches are doctored. The toss is rigged. Wake up 👁️" },
+  { handle: "dot_ball_diaries", name: "Dot Ball Diaries", bio: "A tribute to the most underrated ball in cricket 🟫" },
+];
+
+/** Seed memer accounts into the league */
+export async function ensureMemerAccounts(leagueId: string) {
+  const { data: existing } = await supabase.from("social_accounts").select("handle").eq("league_id", leagueId);
+  const have = new Set((existing ?? []).map(a => a.handle));
+  const toInsert = MEMER_HANDLES
+    .filter(m => !have.has(m.handle))
+    .map(m => ({
+      league_id: leagueId, handle: m.handle, display_name: m.name, account_type: "fan" as const,
+      bio: m.bio, pfp_seed: m.handle, pfp_url: pfpFor(m.handle, pick(["bottts","lorelei","thumbs"]) as any),
+      followers: rng(8000, 120000), following: rng(100, 500), verified: false,
+    }));
+  if (toInsert.length) await supabase.from("social_accounts").insert(toInsert);
+  return toInsert.length;
+}
+
+/**
+ * Generate dressing-room leaks, controversies, transfer rumours, and retirement hints.
+ * Call this at any time — no match context needed.
+ */
+export async function generateDramaLeaks(leagueId: string, count = 12) {
+  const { data: accs } = await supabase.from("social_accounts").select("*").eq("league_id", leagueId);
+  if (!accs?.length) return 0;
+  const teamsRow = await supabase.from("leagues").select("teams").eq("id", leagueId).maybeSingle();
+  const teams = (teamsRow.data?.teams as any[]) ?? [];
+  const { data: players } = await supabase.from("players").select("name").eq("league_id", leagueId).order("rating", { ascending: false }).limit(30);
+  const playerNames = (players ?? []).map(p => p.name);
+
+  const mediaAccs = accs.filter(a => a.account_type === "media");
+  const fanAccs   = accs.filter(a => a.account_type === "fan");
+  const fill = (tpl: string) => {
+    const t1 = teams.length ? pick(teams) : { id: "RCB" };
+    const t2 = teams.filter(t => t.id !== t1.id).length ? pick(teams.filter(t => t.id !== t1.id)) : { id: "CSK" };
+    return tpl
+      .replace(/\{PLAYER\}/g, playerNames.length ? pick(playerNames) : "the star")
+      .replace(/\{TEAM\}/g, t1.id ?? "the team")
+      .replace(/\{TEAM2\}/g, t2.id ?? "rivals");
+  };
+
+  const posts: any[] = [];
+  for (let i = 0; i < count; i++) {
+    const dice = Math.random();
+    let content: string, acc: any;
+    if (dice < 0.35) {
+      content = fill(pick(LEAK_TEMPLATES));
+      acc = mediaAccs.length ? pick(mediaAccs) : pick(accs);
+    } else if (dice < 0.55) {
+      content = fill(pick(CONTROVERSY_TEMPLATES));
+      acc = fanAccs.length ? pick(fanAccs) : pick(accs);
+    } else if (dice < 0.75) {
+      content = fill(pick(TRANSFER_TEMPLATES));
+      acc = mediaAccs.length ? pick(mediaAccs) : pick(accs);
+    } else {
+      content = fill(pick(RETIREMENT_TEMPLATES));
+      acc = fanAccs.length ? pick(fanAccs) : pick(accs);
+    }
+
+    posts.push({
+      league_id: leagueId, account_id: acc.id, content,
+      post_type: "announcement",
+      image_url: Math.random() < 0.4 ? photoFor(`drama-${i}-${Date.now()}`, 700, 400) : null,
+      hashtags: pick([["DressingRoomLeak","IPLT2"],["TransferRumour","Cricket"],["RetirementWatch","IPLT2"],["CaptaincyDebate","HotTake"]]),
+      likes: rng(500, 25000), reposts: rng(100, 3000), replies: rng(50, 800),
+    });
+  }
+  if (posts.length) await supabase.from("social_posts").insert(posts);
+  return posts.length;
+}
+
 function pickTeam(teams: any[]) { return teams.length ? pick(teams) : { id: "RCB", fullName: "RCB" }; }
 
 export async function generateRandomPosts(leagueId: string, count = 30, opts?: { matchId?: string; seasonNumber?: number; context?: string }) {
