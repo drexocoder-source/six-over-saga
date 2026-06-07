@@ -54,6 +54,7 @@ const App = () => (
               <Route path="/stats" element={<Stats />} />
               <Route path="/records" element={<Records />} />
               <Route path="/all-time" element={<AllTime />} />
+              <Route path="/hall-of-fame" element={<HallOfFame />} />
               <Route path="/history" element={<SeasonHistory />} />
               <Route path="/retention" element={<Retention />} />
               <Route path="/social" element={<Social />} />
