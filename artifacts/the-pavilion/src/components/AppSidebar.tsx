@@ -34,6 +34,7 @@ const groups: { label: string; items: { title: string; url: string; icon: any }[
       { title: "Records",     url: "/records",  icon: Award },
       { title: "Season History", url: "/history", icon: History },
       { title: "All-Time",    url: "/all-time", icon: Crown },
+      { title: "Hall of Fame",url: "/hall-of-fame", icon: Star },
     ],
   },
   {
