@@ -24,6 +24,7 @@ import Retention from "./pages/Retention";
 import Scorecard from "./pages/Scorecard";
 import Ceremony from "./pages/Ceremony";
 import Multiverse from "./pages/Multiverse";
+import HallOfFame from "./pages/HallOfFame";
 import AuthPage from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
