@@ -24,6 +24,7 @@ import Retention from "./pages/Retention";
 import Scorecard from "./pages/Scorecard";
 import Ceremony from "./pages/Ceremony";
 import Multiverse from "./pages/Multiverse";
+import HallOfFame from "./pages/HallOfFame";
 import AuthPage from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="/stats" element={<Stats />} />
               <Route path="/records" element={<Records />} />
               <Route path="/all-time" element={<AllTime />} />
+              <Route path="/hall-of-fame" element={<HallOfFame />} />
               <Route path="/history" element={<SeasonHistory />} />
               <Route path="/retention" element={<Retention />} />
               <Route path="/social" element={<Social />} />

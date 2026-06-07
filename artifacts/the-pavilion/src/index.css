@@ -3,92 +3,92 @@
 @tailwind utilities;
 
 /* ============================================================
-   THE PAVILION — Editorial Magazine design system.
-   Inspired by The New York Times Magazine + ESPN long-reads.
-   Cream paper, ink-black, terracotta accent, generous whitespace.
+   THE PAVILION — Designer dark aesthetic.
+   Deep ink with warm cream type, brass/amber accent.
+   Inspired by Mubi / Aesop / Awwwards dark editorial.
    All colors HSL.
    ============================================================ */
 
 @layer base {
   :root {
-    /* Paper & ink */
-    --background: 40 30% 96%;          /* warm cream */
-    --foreground: 0 0% 10%;            /* ink black */
+    /* Ink & paper (dark) */
+    --background: 30 8% 7%;            /* near-black with warm cast */
+    --foreground: 36 30% 92%;          /* warm cream */
 
-    --card: 0 0% 100%;                 /* pure paper */
-    --card-foreground: 0 0% 10%;
+    --card: 30 8% 10%;
+    --card-foreground: 36 30% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    --popover: 30 10% 9%;
+    --popover-foreground: 36 30% 92%;
 
-    /* Terracotta — the signature accent */
-    --primary: 14 55% 52%;             /* #c4654a-ish */
-    --primary-foreground: 40 30% 98%;
+    /* Brass — signature accent */
+    --primary: 36 65% 60%;             /* warm brass */
+    --primary-foreground: 30 10% 8%;
 
-    --secondary: 40 18% 90%;           /* sand */
-    --secondary-foreground: 0 0% 12%;
+    --secondary: 30 8% 14%;
+    --secondary-foreground: 36 25% 88%;
 
-    --muted: 40 14% 92%;
-    --muted-foreground: 0 0% 38%;
+    --muted: 30 6% 16%;
+    --muted-foreground: 36 12% 62%;
 
-    --accent: 14 55% 52%;
-    --accent-foreground: 40 30% 98%;
+    --accent: 14 70% 58%;              /* terracotta accent kept as secondary highlight */
+    --accent-foreground: 30 10% 8%;
 
-    --destructive: 0 65% 48%;
-    --destructive-foreground: 40 30% 98%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 36 30% 96%;
 
-    --border: 0 0% 86%;
-    --input: 0 0% 90%;
-    --ring: 14 55% 52%;
+    --border: 30 8% 18%;
+    --input: 30 8% 16%;
+    --ring: 36 65% 60%;
 
-    --radius: 0.25rem;                 /* magazine-sharp corners */
+    --radius: 0.35rem;
 
-    /* Team colors — kept (used as accents only) */
-    --rcb: 0 75% 48%;
-    --csk: 42 95% 50%;
-    --mi: 215 80% 45%;
-    --rr: 330 70% 55%;
-    --kkr: 270 55% 45%;
-    --srh: 22 95% 55%;
-    --dc: 220 75% 55%;
-    --pbks: 355 80% 55%;
-    --gt: 200 50% 25%;
-    --lsg: 195 85% 50%;
+    /* Team colors kept */
+    --rcb: 0 75% 55%;
+    --csk: 42 95% 58%;
+    --mi: 215 80% 58%;
+    --rr: 330 70% 62%;
+    --kkr: 270 55% 58%;
+    --srh: 22 95% 60%;
+    --dc: 220 75% 62%;
+    --pbks: 355 80% 62%;
+    --gt: 200 50% 45%;
+    --lsg: 195 85% 58%;
 
-    /* Match semantic colors (kept for in-match UI) */
-    --boundary: 142 50% 38%;           /* moss green */
-    --six: 270 50% 45%;                /* aubergine */
-    --wicket: 0 65% 48%;
-    --extra: 35 75% 50%;
+    /* Match semantic colors */
+    --boundary: 142 55% 48%;
+    --six: 270 60% 60%;
+    --wicket: 0 70% 58%;
+    --extra: 35 80% 58%;
 
-    /* Gradients — restrained editorial */
-    --gradient-primary: linear-gradient(135deg, hsl(14 55% 52%), hsl(20 60% 45%));
-    --gradient-pitch: linear-gradient(180deg, hsl(40 30% 96%) 0%, hsl(40 25% 92%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(40 20% 98%) 100%);
-    --gradient-six: linear-gradient(135deg, hsl(270 50% 45%), hsl(285 45% 38%));
-    --gradient-four: linear-gradient(135deg, hsl(142 50% 38%), hsl(155 50% 32%));
-    --gradient-wicket: linear-gradient(135deg, hsl(0 65% 48%), hsl(12 65% 42%));
+    /* Gradients — moody, restrained */
+    --gradient-primary: linear-gradient(135deg, hsl(36 65% 60%), hsl(28 70% 50%));
+    --gradient-pitch: linear-gradient(180deg, hsl(30 8% 7%) 0%, hsl(30 8% 5%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(30 8% 11%) 0%, hsl(30 8% 9%) 100%);
+    --gradient-hero: radial-gradient(ellipse at top, hsl(36 30% 14%) 0%, hsl(30 8% 7%) 60%);
+    --gradient-six: linear-gradient(135deg, hsl(270 60% 50%), hsl(285 55% 42%));
+    --gradient-four: linear-gradient(135deg, hsl(142 55% 42%), hsl(155 55% 36%));
+    --gradient-wicket: linear-gradient(135deg, hsl(0 70% 52%), hsl(12 70% 46%));
 
-    --shadow-glow: 0 4px 24px hsl(14 55% 52% / 0.18);
-    --shadow-elegant: 0 12px 32px -16px hsl(0 0% 0% / 0.18);
-    --shadow-card: 0 1px 3px hsl(0 0% 0% / 0.05), 0 8px 20px -10px hsl(0 0% 0% / 0.08);
+    --shadow-glow: 0 0 32px hsl(36 65% 60% / 0.22);
+    --shadow-elegant: 0 24px 48px -20px hsl(0 0% 0% / 0.6);
+    --shadow-card: 0 1px 0 hsl(36 30% 96% / 0.03) inset, 0 12px 28px -16px hsl(0 0% 0% / 0.5);
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Sidebar — light editorial */
-    --sidebar-background: 40 28% 94%;
-    --sidebar-foreground: 0 0% 18%;
-    --sidebar-primary: 14 55% 52%;
-    --sidebar-primary-foreground: 40 30% 98%;
-    --sidebar-accent: 40 18% 88%;
-    --sidebar-accent-foreground: 14 55% 42%;
-    --sidebar-border: 0 0% 84%;
-    --sidebar-ring: 14 55% 52%;
+    /* Sidebar — deeper than card */
+    --sidebar-background: 30 10% 5%;
+    --sidebar-foreground: 36 22% 82%;
+    --sidebar-primary: 36 65% 60%;
+    --sidebar-primary-foreground: 30 10% 8%;
+    --sidebar-accent: 30 8% 12%;
+    --sidebar-accent-foreground: 36 60% 70%;
+    --sidebar-border: 30 8% 14%;
+    --sidebar-ring: 36 65% 60%;
   }
 
-  .dark {
-    color-scheme: light;
-  }
+  .dark { color-scheme: dark; }
+  :root { color-scheme: dark; }
 }
 
 @layer base {
@@ -97,19 +97,29 @@
     @apply bg-background text-foreground;
     font-family: "Work Sans", system-ui, sans-serif;
     font-feature-settings: "ss01";
-    /* Subtle paper texture via radial gradients */
     background-image:
-      radial-gradient(ellipse at top left, hsl(40 30% 98%) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom right, hsl(14 30% 94%) 0%, transparent 60%);
+      radial-gradient(ellipse at top, hsl(36 30% 12% / 0.45) 0%, transparent 55%),
+      radial-gradient(ellipse at bottom right, hsl(14 30% 12% / 0.35) 0%, transparent 60%),
+      linear-gradient(180deg, transparent, hsl(30 8% 5% / 0.4));
     background-attachment: fixed;
   }
+  /* Subtle film-grain for designer feel */
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    background-image:
+      radial-gradient(hsl(36 30% 70% / 0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+    mix-blend-mode: overlay;
+    opacity: 0.6;
+  }
   h1, h2, h3, h4 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; letter-spacing: -0.01em; }
-  /* Magazine-style numerals */
   .font-mono { font-feature-settings: "tnum", "lnum"; }
+  ::selection { background: hsl(36 65% 60% / 0.35); color: hsl(36 30% 96%); }
 }
 
 @layer utilities {
-  /* Team color utilities (kept for compatibility) */
+  /* Team color utilities */
   .text-rcb { color: hsl(var(--rcb)); }
   .text-csk { color: hsl(var(--csk)); }
   .text-mi  { color: hsl(var(--mi)); }
@@ -128,14 +138,15 @@
   .glow-primary { box-shadow: var(--shadow-glow); }
   .gradient-primary { background: var(--gradient-primary); }
   .gradient-card { background: var(--gradient-card); }
+  .gradient-hero { background: var(--gradient-hero); }
   .gradient-six { background: var(--gradient-six); }
   .gradient-four { background: var(--gradient-four); }
   .gradient-wicket { background: var(--gradient-wicket); }
 
-  /* Editorial paper card — subtle border + shadow */
   .glass-card {
-    background: hsl(0 0% 100%);
-    border: 1px solid hsl(0 0% 88%);
+    background: linear-gradient(180deg, hsl(30 8% 11% / 0.85), hsl(30 8% 9% / 0.85));
+    border: 1px solid hsl(30 8% 18%);
+    backdrop-filter: blur(8px);
     box-shadow: var(--shadow-card);
   }
   .premium-border {
@@ -146,14 +157,14 @@
     position: absolute; inset: 0;
     padding: 1px;
     border-radius: inherit;
-    background: linear-gradient(135deg, hsl(14 55% 52% / 0.5), transparent 50%, hsl(14 55% 52% / 0.2));
+    background: linear-gradient(135deg, hsl(36 65% 60% / 0.7), transparent 45%, hsl(14 70% 58% / 0.4));
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
             mask-composite: exclude;
     pointer-events: none;
   }
   .text-shimmer {
-    background: linear-gradient(90deg, hsl(14 55% 45%) 0%, hsl(20 60% 55%) 50%, hsl(14 55% 45%) 100%);
+    background: linear-gradient(90deg, hsl(36 55% 55%) 0%, hsl(40 75% 72%) 50%, hsl(36 55% 55%) 100%);
     background-size: 200% 100%;
     -webkit-background-clip: text;
             background-clip: text;
@@ -165,57 +176,54 @@
     100% { background-position: 200% 50%; }
   }
 
-  .pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
+  .pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
   @keyframes pulse-glow {
-    0%,100% { box-shadow: 0 0 12px hsl(14 55% 52% / 0.25); }
-    50%     { box-shadow: 0 0 24px hsl(14 55% 52% / 0.5); }
+    0%,100% { box-shadow: 0 0 12px hsl(36 65% 60% / 0.3); }
+    50%     { box-shadow: 0 0 28px hsl(36 65% 60% / 0.6); }
   }
 
-  .ball-pop {
-    animation: ball-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
+  .ball-pop { animation: ball-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
   @keyframes ball-pop {
     0%   { transform: scale(0.5); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
   }
 
-  .scoreboard-tick {
-    animation: tick 0.4s ease-out;
-  }
+  .scoreboard-tick { animation: tick 0.4s ease-out; }
   @keyframes tick {
     0%   { transform: translateY(8px); opacity: 0; }
     100% { transform: translateY(0); opacity: 1; }
   }
 
-  .marquee {
-    animation: marquee 30s linear infinite;
-  }
+  .marquee { animation: marquee 30s linear infinite; }
   @keyframes marquee {
     from { transform: translateX(0); }
     to   { transform: translateX(-50%); }
   }
 
-  /* Editorial: kicker label (small uppercase metadata) */
   .kicker {
     font-size: 0.65rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.18em;
-    color: hsl(14 55% 45%);
+    letter-spacing: 0.22em;
+    color: hsl(36 55% 62%);
   }
 
-  /* Editorial: a thin terracotta hairline */
-  .rule { height: 1px; background: hsl(14 55% 52%); }
+  .rule { height: 1px; background: linear-gradient(90deg, transparent, hsl(36 65% 55% / 0.7), transparent); }
 
-  /* Editorial: drop-cap for hero paragraphs */
   .dropcap::first-letter {
     font-family: "Instrument Serif", Georgia, serif;
     font-size: 4em;
     line-height: 0.85;
     float: left;
     padding: 0.05em 0.1em 0 0;
-    color: hsl(14 55% 45%);
+    color: hsl(36 65% 60%);
+  }
+
+  /* Hall-of-fame plaque */
+  .plaque {
+    background:
+      linear-gradient(180deg, hsl(36 30% 14%) 0%, hsl(30 8% 9%) 100%);
+    border: 1px solid hsl(36 40% 30%);
+    box-shadow: 0 0 0 1px hsl(36 65% 55% / 0.1) inset, var(--shadow-elegant);
   }
 }
