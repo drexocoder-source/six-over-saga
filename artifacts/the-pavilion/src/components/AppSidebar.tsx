@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { BookOpen, Gavel, Calendar, Play, BarChart3, Award, Settings2, Home, Users, Swords, Layers, User, Crown, MessageSquare, History, Repeat, ScrollText, Trophy, GitBranch } from "lucide-react";
+import { BookOpen, Gavel, Calendar, Play, BarChart3, Award, Settings2, Home, Users, Swords, Layers, User, Crown, MessageSquare, History, Repeat, ScrollText, Trophy, GitBranch, Star } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
