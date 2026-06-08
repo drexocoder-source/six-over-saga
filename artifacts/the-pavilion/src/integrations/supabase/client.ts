@@ -1,13 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Point the Supabase JS client at our own Replit API server.
-// The proxy routes /rest, /auth, /functions to our Express API.
-const REPLIT_BASE = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  import.meta.env.VITE_SUPABASE_ANON_KEY) as string;
 
-// Retrieve or generate a stable device ID for anonymous league ownership.
 function getDeviceId(): string {
   const KEY = "ipl_t2_device_id";
+  if (typeof window === "undefined") return "";
   let id = localStorage.getItem(KEY);
   if (!id) {
     id = crypto.randomUUID();
@@ -16,24 +16,16 @@ function getDeviceId(): string {
   return id;
 }
 
-export const supabase = createClient<Database>(
-  REPLIT_BASE,
-  "anon",
-  {
-    auth: {
-      storage: localStorage,
-      persistSession: true,
-      autoRefreshToken: true,
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: typeof window !== "undefined" ? localStorage : undefined,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+  db: { schema: "public" },
+  global: {
+    headers: {
+      "x-device-id": getDeviceId(),
     },
-    db: {
-      schema: "public",
-    },
-    global: {
-      headers: {
-        "apikey": "anon",
-        // Sent on every request so the server can authorize anonymous league mutations.
-        "x-device-id": typeof window !== "undefined" ? getDeviceId() : "",
-      },
-    },
-  }
-);
+  },
+});
