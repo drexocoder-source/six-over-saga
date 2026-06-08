@@ -2,8 +2,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export type ImageKind =
+  | "ceremony" | "moment" | "pfp" | "trophy_lift"
+  | "playoffs_poster" | "final_poster" | "leaderboard_poster"
+  | "season_recap" | "matchup_poster" | "jersey_concept"
+  | "stadium_atmosphere" | "team_huddle" | "custom";
+
 export interface GenImgArgs {
-  kind: "ceremony" | "moment" | "pfp" | "trophy_lift";
+  kind: ImageKind;
   prompt: string;
   leagueId?: string;
   seasonNumber?: number;
