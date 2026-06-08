@@ -9,9 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles, Bot, AlertTriangle, RotateCcw } from "lucide-react";
+import { Loader2, Plus, Trash2, Settings2, Users, UserPlus, Trophy, Megaphone, Save, Sparkles, Bot, AlertTriangle, RotateCcw, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import ChairmanChat, { type ChairmanChatContext } from "@/components/ChairmanChat";
+import ImageStudio from "@/components/ImageStudio";
 
 const ROLES = ["BAT", "BOWL", "AR", "WK"] as const;
 
@@ -175,8 +176,9 @@ export default function Chairman() {
       </div>
 
       <Tabs defaultValue="chat">
-        <TabsList className="bg-secondary/40">
+        <TabsList className="bg-secondary/40 flex-wrap h-auto">
           <TabsTrigger value="chat"><Bot className="w-3.5 h-3.5 mr-1"/>AI Chat</TabsTrigger>
+          <TabsTrigger value="studio"><Wand2 className="w-3.5 h-3.5 mr-1"/>Image Studio</TabsTrigger>
           <TabsTrigger value="teams"><Users className="w-3.5 h-3.5 mr-1"/>Teams</TabsTrigger>
           <TabsTrigger value="players"><UserPlus className="w-3.5 h-3.5 mr-1"/>Player Pool</TabsTrigger>
           <TabsTrigger value="rules"><Settings2 className="w-3.5 h-3.5 mr-1"/>Rules</TabsTrigger>
@@ -186,6 +188,11 @@ export default function Chairman() {
         {/* AI CHAT */}
         <TabsContent value="chat" className="mt-4">
           {chatCtx ? <ChairmanChat league={league} context={chatCtx}/> : <div className="text-sm text-muted-foreground">Loading context…</div>}
+        </TabsContent>
+
+        {/* IMAGE STUDIO */}
+        <TabsContent value="studio" className="mt-4">
+          <ImageStudio league={league}/>
         </TabsContent>
 
         {/* TEAMS */}
