@@ -268,6 +268,16 @@ export default function Match() {
       } else {
         setPhase("toss");
       }
+
+      // Build pre-match record baselines (orange/purple cap holders + all-time leaders)
+      try {
+        const allTimeMatches = await loadAllDoneMatches(lg.id);
+        const seasonMatches = allTimeMatches.filter(x => x.season_id === m.season_id);
+        recordBaselineRef.current = buildBaseline(allTimeMatches, seasonMatches);
+        const { aggregate } = await import("@/lib/recordsAgg");
+        aggregate(allTimeMatches).forEach(a => careerCacheRef.current.set(a.player_id, { runs: a.runs, wickets: a.wickets, sixes: a.sixes }));
+        aggregate(seasonMatches).forEach(a => seasonCacheRef.current.set(a.player_id, { runs: a.runs, wickets: a.wickets }));
+      } catch (e) { console.warn("[liveRecords] baseline failed", e); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
