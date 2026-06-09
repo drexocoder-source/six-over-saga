@@ -9,6 +9,8 @@ import {
 } from "@/lib/matchEngine";
 import { processRecords } from "@/lib/records";
 import { evaluateCustomRecords } from "@/lib/customRecords";
+import { buildBaseline, detectRecordBreaks, type LiveBaseline } from "@/lib/liveRecords";
+import { loadAllDoneMatches } from "@/lib/recordsAgg";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -179,6 +181,9 @@ export default function Match() {
   const celebTrackerRef = useRef(newCelebrationTracker());
   const [secondInnSetup, setSecondInnSetup] = useState<{ openers?: [string,string]; bowler?: string }>({});
   const commentaryRef = useRef<HTMLDivElement>(null);
+  const recordBaselineRef = useRef<LiveBaseline | null>(null);
+  const careerCacheRef = useRef<Map<string, { runs: number; wickets: number; sixes: number }>>(new Map());
+  const seasonCacheRef = useRef<Map<string, { runs: number; wickets: number }>>(new Map());
 
   // AI Sim state
   const [aiStyle, setAiStyle] = useState<CommentaryStyle>("normal");
@@ -263,6 +268,16 @@ export default function Match() {
       } else {
         setPhase("toss");
       }
+
+      // Build pre-match record baselines (orange/purple cap holders + all-time leaders)
+      try {
+        const allTimeMatches = await loadAllDoneMatches(lg.id);
+        const seasonMatches = allTimeMatches.filter(x => x.season_id === m.season_id);
+        recordBaselineRef.current = buildBaseline(allTimeMatches, seasonMatches);
+        const { aggregate } = await import("@/lib/recordsAgg");
+        aggregate(allTimeMatches).forEach(a => careerCacheRef.current.set(a.player_id, { runs: a.runs, wickets: a.wickets, sixes: a.sixes }));
+        aggregate(seasonMatches).forEach(a => seasonCacheRef.current.set(a.player_id, { runs: a.runs, wickets: a.wickets }));
+      } catch (e) { console.warn("[liveRecords] baseline failed", e); }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchId]);
@@ -460,6 +475,25 @@ export default function Match() {
       celebQueueRef.current.push(...celebs);
       if (!celebration) setCelebration(celebQueueRef.current.shift() ?? null);
       celebs.forEach(c => setCommentary(cm => [`✨ ${c.title} — ${c.subtitle ?? ""}`, ...cm]));
+    }
+
+    // 🏆 Live record-break detector — Orange/Purple Cap + all-time leader overtakes
+    if (recordBaselineRef.current) {
+      const stB = inn.bat[strikerBefore];
+      const bwB = inn.bowl[bowlerBefore];
+      const careerS = careerCacheRef.current.get(strikerBefore) ?? { runs: 0, wickets: 0, sixes: 0 };
+      const seasonS = seasonCacheRef.current.get(strikerBefore) ?? { runs: 0, wickets: 0 };
+      const careerB = careerCacheRef.current.get(bowlerBefore) ?? { runs: 0, wickets: 0, sixes: 0 };
+      const seasonB = seasonCacheRef.current.get(bowlerBefore) ?? { runs: 0, wickets: 0 };
+      const breaks = detectRecordBreaks(recordBaselineRef.current, {
+        striker: stB ? { player_id: strikerBefore, name: stB.name, team: inn.battingTeam, runsThisInnings: stB.runs ?? 0, careerRunsBefore: careerS.runs, seasonRunsBefore: seasonS.runs } : undefined,
+        bowler: bwB ? { player_id: bowlerBefore, name: bwB.name, team: inn.bowlingTeam, wktsThisInnings: bwB.wickets ?? 0, careerWktsBefore: careerB.wickets, seasonWktsBefore: seasonB.wickets } : undefined,
+        sixCarrier: result.events.isSix && stB ? { player_id: strikerBefore, name: stB.name, careerSixesBefore: careerS.sixes } : undefined,
+      });
+      breaks.forEach(br => {
+        toast.success(br.title, { description: br.subtitle, duration: 6000 });
+        setCommentary(cm => [`${br.emoji} ${br.title} — ${br.subtitle}`, ...cm]);
+      });
     }
 
     if (inn.done) {

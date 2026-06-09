@@ -26,6 +26,8 @@ import Ceremony from "./pages/Ceremony";
 import Multiverse from "./pages/Multiverse";
 import HallOfFame from "./pages/HallOfFame";
 import AuthPage from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,6 +43,9 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/signin" element={<AuthPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route element={<AppLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/auction" element={<Auction />} />
