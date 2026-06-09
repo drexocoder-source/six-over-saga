@@ -21,6 +21,11 @@ export const DEFAULT_TEAMS: TeamConfig[] = [
   { id: "PBKS", shortName: "PBKS", fullName: "Punjab Kings",               colorVar: "pbks", primary: "hsl(355 80% 55%)",  home: "Mohali"    },
   { id: "GT",   shortName: "GT",   fullName: "Gujarat Titans",             colorVar: "gt",   primary: "hsl(200 50% 25%)",  home: "Ahmedabad" },
   { id: "LSG",  shortName: "LSG",  fullName: "Lucknow Super Giants",       colorVar: "lsg",  primary: "hsl(195 85% 50%)",  home: "Lucknow"   },
+  { id: "DCH",  shortName: "DCH",  fullName: "Deccan Chargers",            colorVar: "dch",  primary: "hsl(45 95% 55%)",   home: "Hyderabad" },
+  { id: "PWI",  shortName: "PWI",  fullName: "Pune Warriors India",        colorVar: "pwi",  primary: "hsl(210 70% 50%)",  home: "Pune"      },
+  { id: "KTK",  shortName: "KTK",  fullName: "Kochi Tuskers Kerala",       colorVar: "ktk",  primary: "hsl(170 70% 40%)",  home: "Kochi"     },
+  { id: "GL",   shortName: "GL",   fullName: "Gujarat Lions",              colorVar: "gl",   primary: "hsl(28 85% 55%)",   home: "Rajkot"    },
+  { id: "RPS",  shortName: "RPS",  fullName: "Rising Pune Supergiant",     colorVar: "rps",  primary: "hsl(290 60% 50%)",  home: "Pune"      },
 ];
 
 export function teamColor(id: TeamId, teams: TeamConfig[] = DEFAULT_TEAMS): string {

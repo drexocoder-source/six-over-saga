@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=Instrument+Serif&family=Work+Sans:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,35 +13,35 @@
 
 @layer base {
   :root {
-    /* Ink & paper (dark) */
-    --background: 30 8% 7%;            /* near-black with warm cast */
-    --foreground: 36 30% 92%;          /* warm cream */
+    /* IPL 2008/09 broadcast — ink + saffron */
+    --background: 24 12% 6%;           /* deep ink with warm cast */
+    --foreground: 40 40% 94%;          /* warm cream */
 
-    --card: 30 8% 10%;
-    --card-foreground: 36 30% 92%;
+    --card: 24 12% 9%;
+    --card-foreground: 40 40% 94%;
 
-    --popover: 30 10% 9%;
-    --popover-foreground: 36 30% 92%;
+    --popover: 24 14% 8%;
+    --popover-foreground: 40 40% 94%;
 
-    /* Brass — signature accent */
-    --primary: 36 65% 60%;             /* warm brass */
-    --primary-foreground: 30 10% 8%;
+    /* Saffron — broadcast signature */
+    --primary: 36 95% 55%;             /* IPL saffron/amber */
+    --primary-foreground: 24 14% 7%;
 
-    --secondary: 30 8% 14%;
-    --secondary-foreground: 36 25% 88%;
+    --secondary: 24 12% 13%;
+    --secondary-foreground: 40 35% 90%;
 
-    --muted: 30 6% 16%;
-    --muted-foreground: 36 12% 62%;
+    --muted: 24 8% 15%;
+    --muted-foreground: 40 14% 64%;
 
-    --accent: 14 70% 58%;              /* terracotta accent kept as secondary highlight */
-    --accent-foreground: 30 10% 8%;
+    --accent: 12 85% 55%;              /* hot terracotta accent */
+    --accent-foreground: 24 14% 7%;
 
-    --destructive: 0 70% 55%;
-    --destructive-foreground: 36 30% 96%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 40 40% 96%;
 
-    --border: 30 8% 18%;
-    --input: 30 8% 16%;
-    --ring: 36 65% 60%;
+    --border: 24 12% 18%;
+    --input: 24 12% 15%;
+    --ring: 36 95% 55%;
 
     --radius: 0.35rem;
 
@@ -95,12 +97,12 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
-    font-family: "Work Sans", system-ui, sans-serif;
+    font-family: "Barlow", "Work Sans", system-ui, sans-serif;
     font-feature-settings: "ss01";
     background-image:
-      radial-gradient(ellipse at top, hsl(36 30% 12% / 0.45) 0%, transparent 55%),
-      radial-gradient(ellipse at bottom right, hsl(14 30% 12% / 0.35) 0%, transparent 60%),
-      linear-gradient(180deg, transparent, hsl(30 8% 5% / 0.4));
+      radial-gradient(ellipse at top, hsl(36 70% 14% / 0.55) 0%, transparent 55%),
+      radial-gradient(ellipse at bottom right, hsl(12 50% 12% / 0.4) 0%, transparent 60%),
+      linear-gradient(180deg, transparent, hsl(24 14% 4% / 0.5));
     background-attachment: fixed;
   }
   /* Subtle film-grain for designer feel */
@@ -108,14 +110,20 @@
     content: "";
     position: fixed; inset: 0; pointer-events: none; z-index: 1;
     background-image:
-      radial-gradient(hsl(36 30% 70% / 0.025) 1px, transparent 1px);
+      radial-gradient(hsl(40 40% 70% / 0.03) 1px, transparent 1px);
     background-size: 3px 3px;
     mix-blend-mode: overlay;
     opacity: 0.6;
   }
-  h1, h2, h3, h4 { font-family: "Instrument Serif", Georgia, serif; font-weight: 400; letter-spacing: -0.01em; }
+  h1, h2, h3, h4 {
+    font-family: "Bebas Neue", "Barlow Condensed", Impact, sans-serif;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .font-serif-display { font-family: "Instrument Serif", Georgia, serif; text-transform: none; letter-spacing: -0.01em; }
   .font-mono { font-feature-settings: "tnum", "lnum"; }
-  ::selection { background: hsl(36 65% 60% / 0.35); color: hsl(36 30% 96%); }
+  ::selection { background: hsl(36 95% 55% / 0.4); color: hsl(40 40% 96%); }
 }
 
 @layer utilities {
