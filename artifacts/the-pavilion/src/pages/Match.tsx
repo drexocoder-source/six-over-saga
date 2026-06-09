@@ -477,6 +477,25 @@ export default function Match() {
       celebs.forEach(c => setCommentary(cm => [`✨ ${c.title} — ${c.subtitle ?? ""}`, ...cm]));
     }
 
+    // 🏆 Live record-break detector — Orange/Purple Cap + all-time leader overtakes
+    if (recordBaselineRef.current) {
+      const stB = inn.bat[strikerBefore];
+      const bwB = inn.bowl[bowlerBefore];
+      const careerS = careerCacheRef.current.get(strikerBefore) ?? { runs: 0, wickets: 0, sixes: 0 };
+      const seasonS = seasonCacheRef.current.get(strikerBefore) ?? { runs: 0, wickets: 0 };
+      const careerB = careerCacheRef.current.get(bowlerBefore) ?? { runs: 0, wickets: 0, sixes: 0 };
+      const seasonB = seasonCacheRef.current.get(bowlerBefore) ?? { runs: 0, wickets: 0 };
+      const breaks = detectRecordBreaks(recordBaselineRef.current, {
+        striker: stB ? { player_id: strikerBefore, name: stB.name, team: inn.battingTeam, runsThisInnings: stB.runs ?? 0, careerRunsBefore: careerS.runs, seasonRunsBefore: seasonS.runs } : undefined,
+        bowler: bwB ? { player_id: bowlerBefore, name: bwB.name, team: inn.bowlingTeam, wktsThisInnings: bwB.wickets ?? 0, careerWktsBefore: careerB.wickets, seasonWktsBefore: seasonB.wickets } : undefined,
+        sixCarrier: result.events.isSix && stB ? { player_id: strikerBefore, name: stB.name, careerSixesBefore: careerS.sixes } : undefined,
+      });
+      breaks.forEach(br => {
+        toast.success(br.title, { description: br.subtitle, duration: 6000 });
+        setCommentary(cm => [`${br.emoji} ${br.title} — ${br.subtitle}`, ...cm]);
+      });
+    }
+
     if (inn.done) {
       // Rule-checker: refuse to switch innings if the engine ended early without a valid reason.
       const violation = assertInningsValid(engine, inn);
