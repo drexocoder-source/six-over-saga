@@ -9,6 +9,8 @@ import {
 } from "@/lib/matchEngine";
 import { processRecords } from "@/lib/records";
 import { evaluateCustomRecords } from "@/lib/customRecords";
+import { buildBaseline, detectRecordBreaks, type LiveBaseline } from "@/lib/liveRecords";
+import { loadAllDoneMatches } from "@/lib/recordsAgg";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -179,6 +181,9 @@ export default function Match() {
   const celebTrackerRef = useRef(newCelebrationTracker());
   const [secondInnSetup, setSecondInnSetup] = useState<{ openers?: [string,string]; bowler?: string }>({});
   const commentaryRef = useRef<HTMLDivElement>(null);
+  const recordBaselineRef = useRef<LiveBaseline | null>(null);
+  const careerCacheRef = useRef<Map<string, { runs: number; wickets: number; sixes: number }>>(new Map());
+  const seasonCacheRef = useRef<Map<string, { runs: number; wickets: number }>>(new Map());
 
   // AI Sim state
   const [aiStyle, setAiStyle] = useState<CommentaryStyle>("normal");
