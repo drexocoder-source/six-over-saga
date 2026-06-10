@@ -48,9 +48,18 @@ export async function computePointsTable(seasonId: string, teamIds: string[], ov
   for (const m of matches ?? []) {
     const sc = (m.scorecard as any) ?? {};
     const i1 = sc.innings1; const i2 = sc.innings2;
-    if (!i1 || !i2) continue;
     const A = map.get(m.team_a); const B = map.get(m.team_b);
     if (!A || !B) continue;
+
+    // Count official completed results even if an old saved match is missing scorecard JSON.
+    // NRR stays unchanged because innings data is unavailable, but P/W/L/T/PTS must still be correct.
+    if (!i1 || !i2) {
+      A.P += 1; B.P += 1;
+      if (m.winner === m.team_a)      { A.W += 1; A.pts += 2; B.L += 1; A.form.push("W"); B.form.push("L"); }
+      else if (m.winner === m.team_b) { B.W += 1; B.pts += 2; A.L += 1; B.form.push("W"); A.form.push("L"); }
+      else                            { A.T += 1; B.T += 1; A.pts += 1; B.pts += 1; A.form.push("T"); B.form.push("T"); }
+      continue;
+    }
 
     const battingFirst = i1.battingTeam;
     const battingSecond = i2.battingTeam;
