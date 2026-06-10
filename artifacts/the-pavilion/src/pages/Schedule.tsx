@@ -73,9 +73,15 @@ export default function Schedule() {
       doneByTeam[m.team_b] = (doneByTeam[m.team_b] ?? 0) + 1;
     });
     const teamIds = lg.teams.map(t => t.id);
-    const minDone = Math.min(...teamIds.map(id => doneByTeam[id] ?? 0));
+    // Per-team scheduled count (handles unbalanced schedules e.g. 13 vs 14)
+    const schedByTeam: Record<string, number> = {};
+    leagueMatches.forEach((m: any) => {
+      schedByTeam[m.team_a] = (schedByTeam[m.team_a] ?? 0) + 1;
+      schedByTeam[m.team_b] = (schedByTeam[m.team_b] ?? 0) + 1;
+    });
     const everyoneDoneAll = leagueMatches.length > 0 && leagueMatches.every((m: any) => m.status === "done");
-    const top4Locked = teamIds.length >= 4 && minDone >= 14;
+    const everyTeamFinishedTheirGames = teamIds.length >= 4 && teamIds.every(id => (doneByTeam[id] ?? 0) >= (schedByTeam[id] ?? 0));
+    const top4Locked = everyTeamFinishedTheirGames;
     if ((top4Locked || everyoneDoneAll) && tbl.length >= 4) {
       await ensurePlayoffsScheduled(s.id, tbl);
       await wirePlayoffDependencies(s.id);

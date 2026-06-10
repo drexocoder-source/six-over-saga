@@ -71,10 +71,58 @@ export default function Chairman() {
     setPlayers(pl ?? []);
     setCustomRecs(cr ?? []);
     const cur = seasons?.[0];
+
+    // Pull richer live context so the AI doesn't say "0 points, season not started".
+    let standings: any[] = [];
+    let topScorers: any[] = [];
+    let topWicketTakers: any[] = [];
+    let recentResults: any[] = [];
+    if (cur) {
+      try {
+        const { computePointsTable } = await import("@/lib/standings");
+        const tbl = await computePointsTable(cur.id, lg.teams.map((t: any) => t.id), lg.settings.oversPerInnings ?? 20);
+        standings = tbl.map((r: any) => ({ team: r.team_id, P: r.P, W: r.W, L: r.L, T: r.T, pts: r.pts, nrr: r.nrr }));
+      } catch (e) { console.warn("standings ctx", e); }
+
+      const { data: doneMatches } = await supabase.from("matches")
+        .select("team_a,team_b,winner,result_text,scorecard,match_number,stage")
+        .eq("season_id", cur.id).eq("status", "done")
+        .order("match_number", { ascending: false }).limit(40);
+
+      recentResults = (doneMatches ?? []).slice(0, 8).map((m: any) => ({
+        teamA: m.team_a, teamB: m.team_b, winner: m.winner, result: m.result_text, stage: m.stage,
+      }));
+
+      // Aggregate season batting/bowling from scorecards
+      const batMap: Record<string, { name: string; team: string; runs: number }> = {};
+      const bowlMap: Record<string, { name: string; team: string; wickets: number }> = {};
+      for (const m of doneMatches ?? []) {
+        const sc: any = m.scorecard;
+        for (const inn of [sc?.innings1, sc?.innings2]) {
+          if (!inn) continue;
+          for (const b of Object.values(inn.bat ?? {}) as any[]) {
+            if (!b?.player_id) continue;
+            const k = b.player_id;
+            batMap[k] = batMap[k] ?? { name: b.name, team: inn.battingTeam, runs: 0 };
+            batMap[k].runs += b.runs ?? 0;
+          }
+          for (const b of Object.values(inn.bowl ?? {}) as any[]) {
+            if (!b?.player_id) continue;
+            const k = b.player_id;
+            bowlMap[k] = bowlMap[k] ?? { name: b.name, team: inn.bowlingTeam, wickets: 0 };
+            bowlMap[k].wickets += b.wickets ?? 0;
+          }
+        }
+      }
+      topScorers = Object.values(batMap).sort((a, b) => b.runs - a.runs).slice(0, 8);
+      topWicketTakers = Object.values(bowlMap).sort((a, b) => b.wickets - a.wickets).slice(0, 8);
+    }
+
     setChatCtx({
       league: { name: lg.name, teamsCount: lg.teams.length, settings: lg.settings },
       season: cur ? { number: cur.season_number, year: cur.year, status: cur.status } : undefined,
       topPlayers: (pl ?? []).slice(0, 20).map((p: any) => ({ name: p.name, rating: p.rating, role: p.role })),
+      standings, topScorers, topWicketTakers, recentResults,
     });
     setLoading(false);
   };

@@ -42,9 +42,12 @@ export default function Multiverse() {
     try {
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      const resp = await fetch(`${BASE}/functions/v1/chairman-chat`, {
+      const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chairman-chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
         signal: ctrl.signal,
         body: JSON.stringify({
           messages: [
