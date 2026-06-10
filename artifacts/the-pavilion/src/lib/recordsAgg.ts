@@ -13,6 +13,7 @@ export interface Sc { innings1?: Inn; innings2?: Inn; team_a: string; team_b: st
 export interface MatchRow {
   id: string; season_id: string; season_number?: number; match_number: number;
   scorecard: Sc; team_a: string; team_b: string; winner: string | null;
+  stage?: string; home_team?: string | null; venue?: string | null; toss_winner?: string | null; toss_decision?: string | null;
 }
 
 /** Fetch all done matches in a league with season number attached. */
@@ -22,7 +23,7 @@ export async function loadAllDoneMatches(leagueId: string): Promise<MatchRow[]> 
   const ids = (seasons ?? []).map(s => s.id);
   if (!ids.length) return [];
   const { data } = await supabase.from("matches")
-    .select("id, season_id, match_number, scorecard, team_a, team_b, winner, status, stage, home_team, venue")
+    .select("id, season_id, match_number, scorecard, team_a, team_b, winner, status, stage, home_team, venue, toss_winner, toss_decision")
     .in("season_id", ids).eq("status", "done").order("match_number");
   return (data ?? []).map((m: any) => ({ ...m, season_number: sMap.get(m.season_id) ?? 0 })) as MatchRow[];
 }
@@ -902,7 +903,7 @@ export function computeTossStats(matches: MatchRow[]): TossStats[] {
   const mk = (t: string): TossStats => ({ team: t, tossWins: 0, batAfterToss: 0, fieldAfterToss: 0, winAfterTossWin: 0, winAfterTossLoss: 0, tossWinMatchWinPct: 0 });
   for (const m of matches) {
     const tossWinner = (m as any).toss_winner as string | undefined;
-    const tossChoice = (m as any).toss_choice as string | undefined;
+    const tossChoice = ((m as any).toss_decision ?? (m as any).toss_choice) as string | undefined;
     if (!tossWinner) continue;
     for (const team of [m.team_a, m.team_b]) {
       const s = map.get(team) ?? mk(team);

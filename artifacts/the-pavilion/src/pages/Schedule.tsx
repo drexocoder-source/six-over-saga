@@ -9,7 +9,7 @@ import { computeQualification } from "@/lib/qualification";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, Trophy, CheckCircle2, Calendar } from "lucide-react";
+import { Loader2, Play, Trophy, CheckCircle2, Calendar, Flag } from "lucide-react";
 import { toast } from "sonner";
 
 interface Match {
@@ -42,6 +42,27 @@ function liveScoreFromState(state: any): { line1: string; line2?: string } | nul
   return { line1, line2 };
 }
 
+function isLeagueStageComplete(matches: Match[], teamIds: string[], targetPerTeam = 14) {
+  const leagueMatches = matches.filter(m => m.stage === "league");
+  if (!leagueMatches.length) return false;
+  const doneLeague = leagueMatches.filter(m => m.status === "done");
+  if (!doneLeague.length) return false;
+  const doneByTeam: Record<string, number> = {};
+  const schedByTeam: Record<string, number> = {};
+  leagueMatches.forEach(m => {
+    schedByTeam[m.team_a] = (schedByTeam[m.team_a] ?? 0) + 1;
+    schedByTeam[m.team_b] = (schedByTeam[m.team_b] ?? 0) + 1;
+    if (m.status === "done") {
+      doneByTeam[m.team_a] = (doneByTeam[m.team_a] ?? 0) + 1;
+      doneByTeam[m.team_b] = (doneByTeam[m.team_b] ?? 0) + 1;
+    }
+  });
+  const everyFixtureDone = leagueMatches.every(m => m.status === "done");
+  const everyTeamReachedTarget = teamIds.every(id => (doneByTeam[id] ?? 0) >= targetPerTeam);
+  const everyTeamFinishedScheduled = teamIds.every(id => (schedByTeam[id] ?? 0) > 0 && (doneByTeam[id] ?? 0) >= (schedByTeam[id] ?? 0));
+  return everyFixtureDone || everyTeamReachedTarget || everyTeamFinishedScheduled;
+}
+
 export default function Schedule() {
   const nav = useNavigate();
   const [league, setLeague] = useState<League | null>(null);
@@ -49,6 +70,7 @@ export default function Schedule() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [table, setTable] = useState<PointsRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [playoffsStarting, setPlayoffsStarting] = useState(false);
 
   async function refresh(lg: League, s: any) {
     const { data: existing } = await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number");
@@ -62,27 +84,11 @@ export default function Schedule() {
     const tbl = await computePointsTable(s.id, lg.teams.map(t=>t.id), lg.settings.oversPerInnings);
     setTable(tbl);
 
-    // Top-4 IPL playoffs trigger: if every team has played ≥14 done matches → start bracket
-    // even if extra fixtures remain in the schedule. (No regen — we just lock standings.)
+    // Top-4 IPL playoffs trigger: start bracket when the league stage is complete.
     const allMatches = (existing && existing.length) ? existing
       : (await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number")).data ?? [];
-    const leagueMatches = allMatches.filter((m: any) => m.stage === "league");
-    const doneByTeam: Record<string, number> = {};
-    leagueMatches.filter((m: any) => m.status === "done").forEach((m: any) => {
-      doneByTeam[m.team_a] = (doneByTeam[m.team_a] ?? 0) + 1;
-      doneByTeam[m.team_b] = (doneByTeam[m.team_b] ?? 0) + 1;
-    });
     const teamIds = lg.teams.map(t => t.id);
-    // Per-team scheduled count (handles unbalanced schedules e.g. 13 vs 14)
-    const schedByTeam: Record<string, number> = {};
-    leagueMatches.forEach((m: any) => {
-      schedByTeam[m.team_a] = (schedByTeam[m.team_a] ?? 0) + 1;
-      schedByTeam[m.team_b] = (schedByTeam[m.team_b] ?? 0) + 1;
-    });
-    const everyoneDoneAll = leagueMatches.length > 0 && leagueMatches.every((m: any) => m.status === "done");
-    const everyTeamFinishedTheirGames = teamIds.length >= 4 && teamIds.every(id => (doneByTeam[id] ?? 0) >= (schedByTeam[id] ?? 0));
-    const top4Locked = everyTeamFinishedTheirGames;
-    if ((top4Locked || everyoneDoneAll) && tbl.length >= 4) {
+    if (isLeagueStageComplete(allMatches as Match[], teamIds) && tbl.length >= 4) {
       await ensurePlayoffsScheduled(s.id, tbl);
       await wirePlayoffDependencies(s.id);
       const { data: fresh } = await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number");
@@ -123,6 +129,22 @@ export default function Schedule() {
     nav(`/match?id=${matchId}`);
   }
 
+  async function startPlayoffsNow() {
+    if (!season || !league || table.length < 4) return;
+    setPlayoffsStarting(true);
+    try {
+      await ensurePlayoffsScheduled(season.id, table);
+      await wirePlayoffDependencies(season.id);
+      const { data: fresh } = await supabase.from("matches").select("*").eq("season_id", season.id).order("match_number");
+      setMatches((fresh ?? []) as Match[]);
+      toast.success("Playoffs are ready — Qualifier 1 and Eliminator have been added.");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not start playoffs");
+    } finally {
+      setPlayoffsStarting(false);
+    }
+  }
+
   if (loading || !league) return <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin text-primary"/></div>;
 
   const champion = season?.status === "done" ? table[0]?.team_id : null;
@@ -134,6 +156,8 @@ export default function Schedule() {
   leagueFixtures.forEach(m => { perTeamCount[m.team_a] = (perTeamCount[m.team_a] ?? 0) + 1; perTeamCount[m.team_b] = (perTeamCount[m.team_b] ?? 0) + 1; });
   const matchesPerTeam = 14;
   const qual = computeQualification(table, matchesPerTeam, 4);
+  const leagueComplete = isLeagueStageComplete(matches, league.teams.map(t => t.id), matchesPerTeam);
+  const canStartPlayoffs = leagueComplete && playoffMatches.length === 0 && table.length >= 4;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -142,6 +166,13 @@ export default function Schedule() {
           <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {season?.season_number} • {season?.year}</div>
           <h1 className="font-display text-4xl tracking-wider">Fixtures & Standings</h1>
         </div>
+        <div className="flex items-center gap-2 flex-wrap">
+        {canStartPlayoffs && (
+          <Button onClick={startPlayoffsNow} disabled={playoffsStarting} className="gradient-primary text-primary-foreground">
+            {playoffsStarting ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Flag className="w-4 h-4 mr-2"/>}
+            Start Playoffs
+          </Button>
+        )}
         {championTeam && (
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg gradient-primary text-primary-foreground font-display text-xl">
@@ -152,6 +183,7 @@ export default function Schedule() {
             </Button>
           </div>
         )}
+        </div>
       </div>
 
       {/* Points Table */}
