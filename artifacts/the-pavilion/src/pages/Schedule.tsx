@@ -9,7 +9,7 @@ import { computeQualification } from "@/lib/qualification";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, Trophy, CheckCircle2, Calendar } from "lucide-react";
+import { Loader2, Play, Trophy, CheckCircle2, Calendar, Flag } from "lucide-react";
 import { toast } from "sonner";
 
 interface Match {
@@ -42,6 +42,27 @@ function liveScoreFromState(state: any): { line1: string; line2?: string } | nul
   return { line1, line2 };
 }
 
+function isLeagueStageComplete(matches: Match[], teamIds: string[], targetPerTeam = 14) {
+  const leagueMatches = matches.filter(m => m.stage === "league");
+  if (!leagueMatches.length) return false;
+  const doneLeague = leagueMatches.filter(m => m.status === "done");
+  if (!doneLeague.length) return false;
+  const doneByTeam: Record<string, number> = {};
+  const schedByTeam: Record<string, number> = {};
+  leagueMatches.forEach(m => {
+    schedByTeam[m.team_a] = (schedByTeam[m.team_a] ?? 0) + 1;
+    schedByTeam[m.team_b] = (schedByTeam[m.team_b] ?? 0) + 1;
+    if (m.status === "done") {
+      doneByTeam[m.team_a] = (doneByTeam[m.team_a] ?? 0) + 1;
+      doneByTeam[m.team_b] = (doneByTeam[m.team_b] ?? 0) + 1;
+    }
+  });
+  const everyFixtureDone = leagueMatches.every(m => m.status === "done");
+  const everyTeamReachedTarget = teamIds.every(id => (doneByTeam[id] ?? 0) >= targetPerTeam);
+  const everyTeamFinishedScheduled = teamIds.every(id => (schedByTeam[id] ?? 0) > 0 && (doneByTeam[id] ?? 0) >= (schedByTeam[id] ?? 0));
+  return everyFixtureDone || everyTeamReachedTarget || everyTeamFinishedScheduled;
+}
+
 export default function Schedule() {
   const nav = useNavigate();
   const [league, setLeague] = useState<League | null>(null);
@@ -49,6 +70,7 @@ export default function Schedule() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [table, setTable] = useState<PointsRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [playoffsStarting, setPlayoffsStarting] = useState(false);
 
   async function refresh(lg: League, s: any) {
     const { data: existing } = await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number");
