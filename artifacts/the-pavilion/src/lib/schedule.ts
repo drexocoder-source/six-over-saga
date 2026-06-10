@@ -40,24 +40,24 @@ export function buildSchedule(
       const homeFirst = (i + j) % 2 === 0;
       rrHome.push({ home: homeFirst ? teams[i] : teams[j], away: homeFirst ? teams[j] : teams[i] });
     }
-    // Doubles (return-leg) — pick a k-regular graph; offsets {1,2,...} until each team has `extra` doubles.
+    // Doubles (return-leg) — pick a balanced k-regular graph. For 10 teams + target 14,
+    // this must produce 25 extra fixtures (not 24), so use a deterministic Havel-Hakimi pass.
     const extra = Math.max(0, target - (N - 1));
-    const used = new Set<string>();
     const second: { home: string; away: string }[] = [];
-    const degOf = (id: string) => second.filter(p => p.home === id || p.away === id).length;
-    // Try offsets greedily
-    for (let off = 1; off <= Math.floor(N / 2) && Math.min(...teams.map(degOf)) < extra; off++) {
-      for (let i = 0; i < N; i++) {
-        const a = teams[i], b = teams[(i + off) % N];
-        if (a === b) continue;
-        const key = [a, b].sort().join("|");
-        if (used.has(key)) continue;
-        if (degOf(a) >= extra || degOf(b) >= extra) continue;
-        // Reverse home of the original RR meeting
-        const orig = rrHome.find(p => (p.home === a && p.away === b) || (p.home === b && p.away === a))!;
-        second.push({ home: orig.away, away: orig.home });
-        used.add(key);
-      }
+    const remaining: Record<string, number> = Object.fromEntries(teams.map(t => [t, extra]));
+    const chosen = new Set<string>();
+    while (Object.values(remaining).some(v => v > 0)) {
+      const a = [...teams].filter(t => remaining[t] > 0).sort((x, y) => remaining[y] - remaining[x])[0];
+      const b = [...teams]
+        .filter(t => t !== a && remaining[t] > 0 && !chosen.has([a, t].sort().join("|")))
+        .sort((x, y) => remaining[y] - remaining[x])[0];
+      if (!a || !b) break;
+      const key = [a, b].sort().join("|");
+      const orig = rrHome.find(p => (p.home === a && p.away === b) || (p.home === b && p.away === a));
+      if (!orig) break;
+      second.push({ home: orig.away, away: orig.home });
+      chosen.add(key);
+      remaining[a]--; remaining[b]--;
     }
     pairs.push(...rrHome, ...second);
   }
