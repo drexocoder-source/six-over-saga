@@ -1,0 +1,2 @@
+ALTER TABLE public.matches DROP CONSTRAINT IF EXISTS matches_stage_check;
+ALTER TABLE public.matches ADD CONSTRAINT matches_stage_check CHECK (stage = ANY (ARRAY['league'::text, 'qualifier'::text, 'qualifier1'::text, 'eliminator'::text, 'qualifier2'::text, 'final'::text]));
