@@ -207,6 +207,139 @@ function indRow(e: IndEntry, league: League): RowItem {
   return { primary: e.name, secondary: e.team, secondaryColor: teamColor(e.team, league.teams), detail: e.detail, season_number: e.season_number };
 }
 
+function overallRow(r: TeamOverallRow, league: League, detail: string): RowItem {
+  return { primary: r.team, primaryColor: teamColor(r.team, league.teams), detail };
+}
+
+function topOverall(rows: TeamOverallRow[], key: keyof TeamOverallRow, league: League, detail: (r: TeamOverallRow) => string, limit = 5) {
+  return [...rows]
+    .filter(r => Number(r[key]) > 0)
+    .sort((a, b) => Number(b[key]) - Number(a[key]))
+    .slice(0, limit)
+    .map(r => overallRow(r, league, detail(r)));
+}
+
+function MegaRecordsView({ matches, league }: { matches: MatchRow[]; league: League }) {
+  const [group, setGroup] = useState<"team" | "bat" | "bowl" | "match" | "captain">("team");
+  const [captains, setCaptains] = useState<CaptaincyRow[] | null>(null);
+  const overall = useMemo(() => computeTeamOverall(matches, league.teams.map(t => t.id)), [matches, league]);
+  const deep = useMemo(() => computePlayerDeepStats(matches, league.settings.powerplayOvers ?? 6), [matches, league]);
+  const advanced = useMemo(() => computeAdvanced(matches, 20), [matches]);
+  const toss = useMemo(() => computeTossStats(matches), [matches]);
+  const collapses = useMemo(() => computeCollapseStats(matches, 10), [matches]);
+
+  useEffect(() => { (async () => setCaptains(await computeCaptaincy(league.id, matches)))(); }, [league.id, matches]);
+
+  const deepRows = (sorter: (a: any, b: any) => number, detail: (r: any) => string) => [...deep].sort(sorter).slice(0, 5).map(r => ({
+    primary: r.name, secondary: r.team, secondaryColor: teamColor(r.team, league.teams), detail: detail(r),
+  }));
+  const advRows = (key: keyof AdvancedRow, detail: (r: AdvancedRow) => string) => [...advanced].sort((a, b) => Number(b[key]) - Number(a[key])).slice(0, 5).map(r => ({
+    primary: r.name, secondary: r.team, secondaryColor: teamColor(r.team, league.teams), detail: detail(r),
+  }));
+  const capRows = (sorter: (a: CaptaincyRow, b: CaptaincyRow) => number, detail: (r: CaptaincyRow) => string) => [...(captains ?? [])].sort(sorter).slice(0, 5).map(r => ({
+    primary: r.name, secondary: r.team, secondaryColor: teamColor(r.team, league.teams), detail: detail(r),
+  }));
+
+  const groups = {
+    team: [
+      <RecordCard key="tw" title="Most Team Wins" desc="Franchise wins across this scope." emoji="🏆" entries={topOverall(overall, "wins", league, r => `${r.wins} wins in ${r.matches} matches`)}/>,
+      <RecordCard key="twp" title="Best Team Win%" desc="Win rate leaderboard." emoji="📈" entries={topOverall(overall, "winPct", league, r => `${r.winPct}% win rate`)}/>,
+      <RecordCard key="tt" title="Most Tied Matches" desc="Teams involved in the most ties." emoji="🤝" entries={topOverall(overall, "ties", league, r => `${r.ties} tied match${r.ties === 1 ? "" : "es"}`)}/>,
+      <RecordCard key="hs" title="Highest Scores" desc="Best franchise innings totals." emoji="🚀" entries={teamHighestTotals(matches, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="ls" title="Lowest Scores" desc="Smallest completed totals." emoji="🥶" entries={teamLowestTotals(matches, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="avg" title="Best Avg Score" desc="Highest average runs per innings." emoji="📊" entries={topOverall(overall, "avgScore", league, r => `${r.avgScore} runs per match`)}/>,
+      <RecordCard key="fours" title="Most Team Fours" desc="Aggregate fours by team." emoji="4️⃣" entries={topOverall(overall, "totalFours", league, r => `${r.totalFours} fours`)}/>,
+      <RecordCard key="sixes" title="Most Team Sixes" desc="Aggregate sixes by team." emoji="6️⃣" entries={topOverall(overall, "totalSixes", league, r => `${r.totalSixes} sixes`)}/>,
+      <RecordCard key="twoh" title="Most 200+ Totals" desc="Frequency of monster totals." emoji="💥" entries={topOverall(overall, "total200s", league, r => `${r.total200s} totals of 200+`)}/>,
+      <RecordCard key="onef" title="Most 150+ Totals" desc="Consistent high scoring." emoji="🔥" entries={topOverall(overall, "total150s", league, r => `${r.total150s} totals of 150+`)}/>,
+      <RecordCard key="wk" title="Most Wickets Taken" desc="Team bowling wickets." emoji="🎯" entries={topOverall(overall, "totalWicketsTaken", league, r => `${r.totalWicketsTaken} wickets`)}/>,
+      <RecordCard key="streak" title="Best Win Streak" desc="Longest winning run." emoji="⚡" entries={topOverall(overall, "bestStreak", league, r => `${r.bestStreak} wins in a row`)}/>,
+      <RecordCard key="bad" title="Longest Losing Run" desc="Worst team slump." emoji="📉" entries={topOverall(overall, "worstStreak", league, r => `${r.worstStreak} losses in a row`)}/>,
+      <RecordCard key="home" title="Best Home Win%" desc="Home dominance." emoji="🏟️" entries={topOverall(overall, "homeWinPct", league, r => `${r.homeWinPct}% at home`)}/>,
+      <RecordCard key="away" title="Best Away Win%" desc="Road performance." emoji="✈️" entries={topOverall(overall, "awayWinPct", league, r => `${r.awayWinPct}% away`)}/>,
+      <RecordCard key="po" title="Most Playoff Appearances" desc="Qualifier/eliminator/final apps." emoji="🎫" entries={topOverall(overall, "playoffApps", league, r => `${r.playoffApps} playoff matches`)}/>,
+      <RecordCard key="finals" title="Most Finals" desc="Grand final appearances." emoji="👑" entries={topOverall(overall, "finalsPlayed", league, r => `${r.finalsPlayed} finals`)}/>,
+      <RecordCard key="titles" title="Most Titles" desc="Championship count." emoji="🏅" entries={topOverall(overall, "titles", league, r => `${r.titles} title${r.titles === 1 ? "" : "s"}`)}/>,
+    ],
+    bat: [
+      <RecordCard key="score" title="Highest Individual Scores" desc="Top single innings." emoji="🏏" entries={topBatScores(matches, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="runs" title="Most Runs" desc="Aggregate run scorers." emoji="🍊" entries={topBest(matches, "runs", 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="avg3" title="Best Batting Avg" desc="Minimum 3 innings." emoji="📐" entries={bestBattingAverage(matches, 3, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="avg5" title="Elite Batting Avg" desc="Minimum 5 innings." emoji="🧮" entries={bestBattingAverage(matches, 5, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="sr10" title="Best Innings SR" desc="Minimum 10 balls." emoji="⚡" entries={bestStrikeRateInnings(matches, 10, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="sr20" title="Best Long-Knock SR" desc="Minimum 20 balls." emoji="🏎️" entries={bestStrikeRateInnings(matches, 20, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="f50" title="Fastest Fifties" desc="Fewest balls to 50." emoji="🚀" entries={fastestMilestone(matches, 50, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="f100" title="Fastest Hundreds" desc="Fewest balls to 100." emoji="💯" entries={fastestMilestone(matches, 100, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="six" title="Most Sixes" desc="Career six count." emoji="🛸" entries={topBest(matches, "sixes", 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="four" title="Most Fours" desc="Career four count." emoji="🎯" entries={topBest(matches, "fours", 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="bdinn" title="Most Boundaries In Innings" desc="4s + 6s in one knock." emoji="🎆" entries={mostBoundariesInnings(matches, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="fif" title="Most Fifties" desc="Half-century count." emoji="5️⃣0️⃣" entries={topBest(matches, "fifties", 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="hun" title="Most Hundreds" desc="Century count." emoji="💯" entries={topBest(matches, "hundreds", 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="chase" title="Best Chase Batters" desc="Most runs batting second." emoji="🏃" entries={deepRows((a, b) => b.chaseRuns - a.chaseRuns, r => `${r.chaseRuns} chase runs · SR ${r.chaseBalls ? ((r.chaseRuns / r.chaseBalls) * 100).toFixed(1) : "—"}`)}/>,
+      <RecordCard key="death" title="Best Death Hitters" desc="Most death-over runs." emoji="🔚" entries={deepRows((a, b) => b.deathRuns - a.deathRuns, r => `${r.deathRuns} death runs`)}/>,
+    ],
+    bowl: [
+      <RecordCard key="fig" title="Best Bowling Figures" desc="Wickets first, then runs." emoji="🔥" entries={bestBowlingFigures(matches, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="wk" title="Most Wickets" desc="Aggregate wicket-takers." emoji="💜" entries={topBest(matches, "wickets", 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="ba2" title="Best Bowling Avg" desc="Minimum 2 wickets." emoji="🩺" entries={bestBowlingAverage(matches, 2, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="ba4" title="Elite Bowling Avg" desc="Minimum 4 wickets." emoji="📉" entries={bestBowlingAverage(matches, 4, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="eco1" title="Best Economy Spell" desc="Minimum 1 over." emoji="🔒" entries={bestEconomySpell(matches, 1, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="eco2" title="Best Full Spell Economy" desc="Minimum 2 overs." emoji="🛡️" entries={bestEconomySpell(matches, 2, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="eco3" title="Best Long Spell Economy" desc="Minimum 3 overs." emoji="🧱" entries={bestEconomySpell(matches, 3, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="dots" title="Most Dots In Spell" desc="Single-innings dot-ball pressure." emoji="⏸️" entries={mostDotsInnings(matches, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="maidens" title="Most Maidens" desc="Aggregate maiden overs." emoji="🚫" entries={mostMaidens(matches, 5).map(e => indRow(e, league))}/>,
+      <RecordCard key="wpa" title="Wickets Per Appearance" desc="Advanced wicket impact." emoji="🎳" entries={advRows("wpa", r => `${r.wpa} wickets/appearance`)}/>,
+    ],
+    match: [
+      <RecordCard key="chase" title="Highest Successful Chases" desc="Biggest targets chased." emoji="🏃" entries={highestSuccessfulChases(matches, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="def" title="Lowest Defended Totals" desc="Smallest winning first-innings scores." emoji="🛡️" entries={lowestDefendedTotals(matches, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="big" title="Biggest Wins" desc="Largest run margins." emoji="💪" entries={biggestWinMargin(matches, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="close" title="Closest Finishes" desc="Smallest run margins." emoji="😬" entries={closestFinishes(matches, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="pp" title="Best Powerplays" desc="Most runs in powerplay." emoji="⚡" entries={teamBestPowerplay(matches, league.settings.powerplayOvers ?? 6, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="tb" title="Most Team Boundaries" desc="4s + 6s in a team innings." emoji="🎯" entries={teamMostBoundaries(matches, 5).map(t => teamRow(t, league))}/>,
+      <RecordCard key="toss" title="Best Toss Impact" desc="Toss win to match win rate." emoji="🪙" entries={toss.slice(0, 5).map(t => ({ primary: t.team, primaryColor: teamColor(t.team, league.teams), detail: `${t.tossWinMatchWinPct}% · ${t.winAfterTossWin}/${t.tossWins} wins after toss` }))}/>,
+      <RecordCard key="collapse" title="Worst Collapses" desc="Clusters of wickets in short windows." emoji="🌪️" entries={collapses.map(c => ({ primary: c.team, primaryColor: teamColor(c.team, league.teams), detail: c.collapseText, season_number: c.season_number }))}/>,
+      <RecordCard key="impact" title="Highest Impact Players" desc="Composite advanced impact." emoji="🌟" entries={advRows("impact", r => `Impact ${r.impact}`)}/>,
+      <RecordCard key="finish" title="Best Finishers" desc="Not-outs and scoring speed." emoji="🔚" entries={advRows("finisherIndex", r => `Finisher ${r.finisherIndex}`)}/>,
+    ],
+    captain: captains === null ? [] : [
+      <RecordCard key="cm" title="Most Matches as Captain" desc="Leadership appearances." emoji="👑" entries={capRows((a, b) => b.matches - a.matches, r => `${r.matches} matches as captain`)}/>,
+      <RecordCard key="cw" title="Most Captain Wins" desc="Wins while leading." emoji="🏆" entries={capRows((a, b) => b.wins - a.wins, r => `${r.wins} wins in ${r.matches} matches`)}/>,
+      <RecordCard key="cwp" title="Best Captain Win%" desc="Minimum 2 captaincy matches." emoji="📈" entries={capRows((a, b) => b.winPct - a.winPct, r => `${r.winPct}% win rate`)}/>,
+      <RecordCard key="ct" title="Most Captain Ties" desc="Tied matches as skipper." emoji="🤝" entries={capRows((a, b) => b.ties - a.ties, r => `${r.ties} ties`)}/>,
+      <RecordCard key="cs" title="Best Captain Streak" desc="Longest winning run as skipper." emoji="⚡" entries={capRows((a, b) => b.bestStreak - a.bestStreak, r => `${r.bestStreak} wins in a row`)}/>,
+      <RecordCard key="cf" title="Most Finals as Captain" desc="Final appearances as skipper." emoji="🎫" entries={capRows((a, b) => b.finals - a.finals, r => `${r.finals} finals`)}/>,
+      <RecordCard key="cti" title="Captain Titles" desc="Championships as skipper." emoji="🏅" entries={capRows((a, b) => b.titles - a.titles, r => `${r.titles} titles`)}/>,
+    ],
+  };
+
+  const labels = [
+    ["team", "Team", groups.team.length], ["bat", "Batting", groups.bat.length], ["bowl", "Bowling", groups.bowl.length],
+    ["match", "Match", groups.match.length], ["captain", "Captaincy", captains === null ? 7 : groups.captain.length],
+  ] as const;
+  const total = groups.team.length + groups.bat.length + groups.bowl.length + groups.match.length + (captains === null ? 7 : groups.captain.length);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">{total}+ live record boards</div>
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {labels.map(([key, label, count]) => (
+            <Button key={key} size="sm" variant={group === key ? "default" : "outline"} className="h-8 text-xs shrink-0" onClick={() => setGroup(key)}>
+              {label} <span className="ml-1 opacity-70">{count}</span>
+            </Button>
+          ))}
+        </div>
+      </div>
+      {group === "captain" && captains === null ? (
+        <Card className="p-8 text-center gradient-card border-border/60"><Loader2 className="w-5 h-5 mx-auto animate-spin text-primary"/></Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">{groups[group]}</div>
+      )}
+    </div>
+  );
+}
+
 // ---- TEAM BESTS ----
 function TeamView({ matches, league }: { matches: MatchRow[]; league: League }) {
   return (
