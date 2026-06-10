@@ -156,6 +156,8 @@ export default function Schedule() {
   leagueFixtures.forEach(m => { perTeamCount[m.team_a] = (perTeamCount[m.team_a] ?? 0) + 1; perTeamCount[m.team_b] = (perTeamCount[m.team_b] ?? 0) + 1; });
   const matchesPerTeam = 14;
   const qual = computeQualification(table, matchesPerTeam, 4);
+  const leagueComplete = isLeagueStageComplete(matches, league.teams.map(t => t.id), matchesPerTeam);
+  const canStartPlayoffs = leagueComplete && playoffMatches.length === 0 && table.length >= 4;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -164,6 +166,13 @@ export default function Schedule() {
           <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {season?.season_number} • {season?.year}</div>
           <h1 className="font-display text-4xl tracking-wider">Fixtures & Standings</h1>
         </div>
+        <div className="flex items-center gap-2 flex-wrap">
+        {canStartPlayoffs && (
+          <Button onClick={startPlayoffsNow} disabled={playoffsStarting} className="gradient-primary text-primary-foreground">
+            {playoffsStarting ? <Loader2 className="w-4 h-4 mr-2 animate-spin"/> : <Flag className="w-4 h-4 mr-2"/>}
+            Start Playoffs
+          </Button>
+        )}
         {championTeam && (
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg gradient-primary text-primary-foreground font-display text-xl">
@@ -174,6 +183,7 @@ export default function Schedule() {
             </Button>
           </div>
         )}
+        </div>
       </div>
 
       {/* Points Table */}
