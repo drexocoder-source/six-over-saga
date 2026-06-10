@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 
 type Scope = "all" | "season" | "match";
-type SubTab = "team" | "individual" | "milestones" | "overall" | "captaincy" | "h2h" | "advanced" | "phase" | "chase" | "playerdeep" | "seasonbests" | "fanvote";
+type SubTab = "mega" | "team" | "individual" | "milestones" | "overall" | "captaincy" | "h2h" | "advanced" | "phase" | "chase" | "playerdeep" | "seasonbests" | "fanvote";
 
 export default function Records() {
   const [league, setLeague] = useState<League | null>(null);
@@ -128,11 +128,12 @@ function ScopeNote({ text }: { text: string }) {
 }
 
 function SubTabs({ matches, league, allMatches }: { matches: MatchRow[]; league: League; allMatches: MatchRow[] }) {
-  const [tab, setTab] = useState<SubTab>("overall");
+  const [tab, setTab] = useState<SubTab>("mega");
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as SubTab)} className="mt-2">
       <div className="overflow-x-auto pb-1">
         <TabsList className="bg-secondary/30 h-auto flex-nowrap min-w-max">
+          <TabsTrigger value="mega" className="text-xs"><Sparkles className="w-3 h-3 mr-1"/>50+ Records</TabsTrigger>
           <TabsTrigger value="overall" className="text-xs"><Trophy className="w-3 h-3 mr-1"/>Teams Overall</TabsTrigger>
           <TabsTrigger value="team" className="text-xs"><Shield className="w-3 h-3 mr-1"/>Team Bests</TabsTrigger>
           <TabsTrigger value="individual" className="text-xs"><Medal className="w-3 h-3 mr-1"/>Individual</TabsTrigger>
@@ -147,6 +148,7 @@ function SubTabs({ matches, league, allMatches }: { matches: MatchRow[]; league:
           <TabsTrigger value="fanvote" className="text-xs"><Heart className="w-3 h-3 mr-1"/>Fan Vote</TabsTrigger>
         </TabsList>
       </div>
+      <TabsContent value="mega" className="mt-4"><MegaRecordsView matches={matches} league={league}/></TabsContent>
       <TabsContent value="overall" className="mt-4"><OverallTeamsView matches={matches} league={league}/></TabsContent>
       <TabsContent value="team" className="mt-4"><TeamView matches={matches} league={league}/></TabsContent>
       <TabsContent value="individual" className="mt-4"><IndividualView matches={matches} league={league}/></TabsContent>
