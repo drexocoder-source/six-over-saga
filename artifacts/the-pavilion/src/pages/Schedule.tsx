@@ -84,27 +84,11 @@ export default function Schedule() {
     const tbl = await computePointsTable(s.id, lg.teams.map(t=>t.id), lg.settings.oversPerInnings);
     setTable(tbl);
 
-    // Top-4 IPL playoffs trigger: if every team has played ≥14 done matches → start bracket
-    // even if extra fixtures remain in the schedule. (No regen — we just lock standings.)
+    // Top-4 IPL playoffs trigger: start bracket when the league stage is complete.
     const allMatches = (existing && existing.length) ? existing
       : (await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number")).data ?? [];
-    const leagueMatches = allMatches.filter((m: any) => m.stage === "league");
-    const doneByTeam: Record<string, number> = {};
-    leagueMatches.filter((m: any) => m.status === "done").forEach((m: any) => {
-      doneByTeam[m.team_a] = (doneByTeam[m.team_a] ?? 0) + 1;
-      doneByTeam[m.team_b] = (doneByTeam[m.team_b] ?? 0) + 1;
-    });
     const teamIds = lg.teams.map(t => t.id);
-    // Per-team scheduled count (handles unbalanced schedules e.g. 13 vs 14)
-    const schedByTeam: Record<string, number> = {};
-    leagueMatches.forEach((m: any) => {
-      schedByTeam[m.team_a] = (schedByTeam[m.team_a] ?? 0) + 1;
-      schedByTeam[m.team_b] = (schedByTeam[m.team_b] ?? 0) + 1;
-    });
-    const everyoneDoneAll = leagueMatches.length > 0 && leagueMatches.every((m: any) => m.status === "done");
-    const everyTeamFinishedTheirGames = teamIds.length >= 4 && teamIds.every(id => (doneByTeam[id] ?? 0) >= (schedByTeam[id] ?? 0));
-    const top4Locked = everyTeamFinishedTheirGames;
-    if ((top4Locked || everyoneDoneAll) && tbl.length >= 4) {
+    if (isLeagueStageComplete(allMatches as Match[], teamIds) && tbl.length >= 4) {
       await ensurePlayoffsScheduled(s.id, tbl);
       await wirePlayoffDependencies(s.id);
       const { data: fresh } = await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number");
@@ -143,6 +127,22 @@ export default function Schedule() {
 
   function startMatch(matchId: string) {
     nav(`/match?id=${matchId}`);
+  }
+
+  async function startPlayoffsNow() {
+    if (!season || !league || table.length < 4) return;
+    setPlayoffsStarting(true);
+    try {
+      await ensurePlayoffsScheduled(season.id, table);
+      await wirePlayoffDependencies(season.id);
+      const { data: fresh } = await supabase.from("matches").select("*").eq("season_id", season.id).order("match_number");
+      setMatches((fresh ?? []) as Match[]);
+      toast.success("Playoffs are ready — Qualifier 1 and Eliminator have been added.");
+    } catch (error: any) {
+      toast.error(error?.message ?? "Could not start playoffs");
+    } finally {
+      setPlayoffsStarting(false);
+    }
   }
 
   if (loading || !league) return <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin text-primary"/></div>;
