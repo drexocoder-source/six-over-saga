@@ -242,11 +242,16 @@ export default function Retention() {
         })}
       </div>
 
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-3">
         <Button variant="ghost" onClick={() => nav("/")}><X className="w-4 h-4 mr-1"/>Cancel</Button>
-        <Button size="lg" onClick={confirmRetentions} className="gradient-primary text-primary-foreground">
-          Lock Retentions & Open Auction <ArrowRight className="w-4 h-4 ml-2"/>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={aiRetainAll} className="border-primary/40 text-primary hover:bg-primary/10">
+            <Sparkles className="w-4 h-4 mr-2"/>AI Retain (auto-pick)
+          </Button>
+          <Button size="lg" onClick={confirmRetentions} className="gradient-primary text-primary-foreground">
+            Lock Retentions & Open Auction <ArrowRight className="w-4 h-4 ml-2"/>
+          </Button>
+        </div>
       </div>
     </div>
   );
