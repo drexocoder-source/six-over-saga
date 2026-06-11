@@ -40,7 +40,8 @@ export function seasonCycleFor(seasonNumber: number): SeasonCycleConfig {
       purse: 120,
       retentionAllowed: seasonNumber > 1,
       minRetentions: 0,
-      maxRetentions: 6,
+      // Mega: hard cap 5 retentions total (≥1 must be uncapped — enforced in UI).
+      maxRetentions: 5,
       rtmCards: 2,
       retention: MEGA_RETENTION,
     };
