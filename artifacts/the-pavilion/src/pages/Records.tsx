@@ -257,8 +257,8 @@ function MegaRecordsView({ matches, league }: { matches: MatchRow[]; league: Lea
       <RecordCard key="bad" title="Longest Losing Run" desc="Worst team slump." emoji="📉" entries={topOverall(overall, "worstStreak", league, r => `${r.worstStreak} losses in a row`)}/>,
       <RecordCard key="home" title="Best Home Win%" desc="Home dominance." emoji="🏟️" entries={topOverall(overall, "homeWinPct", league, r => `${r.homeWinPct}% at home`)}/>,
       <RecordCard key="away" title="Best Away Win%" desc="Road performance." emoji="✈️" entries={topOverall(overall, "awayWinPct", league, r => `${r.awayWinPct}% away`)}/>,
-      <RecordCard key="po" title="Most Playoff Appearances" desc="Qualifier/eliminator/final apps." emoji="🎫" entries={topOverall(overall, "playoffApps", league, r => `${r.playoffApps} playoff matches`)}/>,
-      <RecordCard key="finals" title="Most Finals" desc="Grand final appearances." emoji="👑" entries={topOverall(overall, "finalsPlayed", league, r => `${r.finalsPlayed} finals`)}/>,
+      <RecordCard key="po" title="Most Playoff Appearances" desc="Distinct seasons reaching playoffs." emoji="🎫" entries={topOverall(overall, "playoffApps", league, r => `${r.playoffApps} season${r.playoffApps === 1 ? "" : "s"} in playoffs`)}/>,
+      <RecordCard key="finals" title="Most Finals" desc="Distinct seasons reaching the final." emoji="👑" entries={topOverall(overall, "finalsPlayed", league, r => `${r.finalsPlayed} final${r.finalsPlayed === 1 ? "" : "s"}`)}/>,
       <RecordCard key="titles" title="Most Titles" desc="Championship count." emoji="🏅" entries={topOverall(overall, "titles", league, r => `${r.titles} title${r.titles === 1 ? "" : "s"}`)}/>,
     ],
     bat: [
