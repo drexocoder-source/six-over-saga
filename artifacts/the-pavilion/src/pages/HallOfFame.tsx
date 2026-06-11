@@ -68,13 +68,22 @@ export default function HallOfFame() {
     return out;
   }, [matches, league]);
 
-  // Champions by season (from trophies "Champion" award, else fallback empty)
+  // Champions by season — prefer trophies, fall back to final-stage match winners
   const champions = useMemo(() => {
-    const winners = trophies.filter(t => /^(Champion|Title|Winner)$/i.test(t.award));
     const bySeason = new Map<number, TrophyRow>();
+    const winners = trophies.filter(t => /^(Champion|Title|Winner)$/i.test(t.award));
     for (const t of winners) bySeason.set(t.season_number, t);
+    // Fallback: derive champions from final-stage match results
+    for (const m of matches) {
+      if ((m as any).stage === "final" && m.winner && !bySeason.has(m.season_number ?? 0)) {
+        bySeason.set(m.season_number ?? 0, {
+          id: `m-${m.id}`, season_number: m.season_number ?? 0, award: "Champion",
+          team_id: m.winner, player_id: null, player_name: null, value: null,
+        });
+      }
+    }
     return [...bySeason.values()].sort((a, b) => b.season_number - a.season_number);
-  }, [trophies]);
+  }, [trophies, matches]);
 
   // Award archive
   const awardArchive = useMemo(() => {
