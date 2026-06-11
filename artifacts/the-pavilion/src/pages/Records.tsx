@@ -257,8 +257,8 @@ function MegaRecordsView({ matches, league }: { matches: MatchRow[]; league: Lea
       <RecordCard key="bad" title="Longest Losing Run" desc="Worst team slump." emoji="📉" entries={topOverall(overall, "worstStreak", league, r => `${r.worstStreak} losses in a row`)}/>,
       <RecordCard key="home" title="Best Home Win%" desc="Home dominance." emoji="🏟️" entries={topOverall(overall, "homeWinPct", league, r => `${r.homeWinPct}% at home`)}/>,
       <RecordCard key="away" title="Best Away Win%" desc="Road performance." emoji="✈️" entries={topOverall(overall, "awayWinPct", league, r => `${r.awayWinPct}% away`)}/>,
-      <RecordCard key="po" title="Most Playoff Appearances" desc="Qualifier/eliminator/final apps." emoji="🎫" entries={topOverall(overall, "playoffApps", league, r => `${r.playoffApps} playoff matches`)}/>,
-      <RecordCard key="finals" title="Most Finals" desc="Grand final appearances." emoji="👑" entries={topOverall(overall, "finalsPlayed", league, r => `${r.finalsPlayed} finals`)}/>,
+      <RecordCard key="po" title="Most Playoff Appearances" desc="Distinct seasons reaching playoffs." emoji="🎫" entries={topOverall(overall, "playoffApps", league, r => `${r.playoffApps} season${r.playoffApps === 1 ? "" : "s"} in playoffs`)}/>,
+      <RecordCard key="finals" title="Most Finals" desc="Distinct seasons reaching the final." emoji="👑" entries={topOverall(overall, "finalsPlayed", league, r => `${r.finalsPlayed} final${r.finalsPlayed === 1 ? "" : "s"}`)}/>,
       <RecordCard key="titles" title="Most Titles" desc="Championship count." emoji="🏅" entries={topOverall(overall, "titles", league, r => `${r.titles} title${r.titles === 1 ? "" : "s"}`)}/>,
     ],
     bat: [
@@ -308,8 +308,10 @@ function MegaRecordsView({ matches, league }: { matches: MatchRow[]; league: Lea
       <RecordCard key="cwp" title="Best Captain Win%" desc="Minimum 2 captaincy matches." emoji="📈" entries={capRows((a, b) => b.winPct - a.winPct, r => `${r.winPct}% win rate`)}/>,
       <RecordCard key="ct" title="Most Captain Ties" desc="Tied matches as skipper." emoji="🤝" entries={capRows((a, b) => b.ties - a.ties, r => `${r.ties} ties`)}/>,
       <RecordCard key="cs" title="Best Captain Streak" desc="Longest winning run as skipper." emoji="⚡" entries={capRows((a, b) => b.bestStreak - a.bestStreak, r => `${r.bestStreak} wins in a row`)}/>,
-      <RecordCard key="cf" title="Most Finals as Captain" desc="Final appearances as skipper." emoji="🎫" entries={capRows((a, b) => b.finals - a.finals, r => `${r.finals} finals`)}/>,
-      <RecordCard key="cti" title="Captain Titles" desc="Championships as skipper." emoji="🏅" entries={capRows((a, b) => b.titles - a.titles, r => `${r.titles} titles`)}/>,
+      <RecordCard key="csea" title="Most Seasons as Captain" desc="Distinct seasons leading a team." emoji="📅" entries={capRows((a, b) => (b as any).seasonsCaptained - (a as any).seasonsCaptained, r => `${(r as any).seasonsCaptained} season${(r as any).seasonsCaptained === 1 ? "" : "s"} captained`)}/>,
+      <RecordCard key="cpo" title="Most Playoff Seasons" desc="Distinct seasons leading team into playoffs." emoji="🎟️" entries={capRows((a, b) => (b as any).playoffSeasons - (a as any).playoffSeasons, r => `${(r as any).playoffSeasons} playoff season${(r as any).playoffSeasons === 1 ? "" : "s"}`)}/>,
+      <RecordCard key="cf" title="Most Finals as Captain" desc="Distinct final appearances." emoji="🎫" entries={capRows((a, b) => b.finals - a.finals, r => `${r.finals} final${r.finals === 1 ? "" : "s"}`)}/>,
+      <RecordCard key="cti" title="Captain Titles" desc="Championships as skipper." emoji="🏅" entries={capRows((a, b) => b.titles - a.titles, r => `${r.titles} title${r.titles === 1 ? "" : "s"}`)}/>,
     ],
   };
 
@@ -428,7 +430,7 @@ function OverallTeamsView({ matches, league }: { matches: MatchRow[]; league: Le
               <th className="text-center px-2 py-2.5">Streak</th>
               <th className="text-center px-2 py-2.5">Home%</th>
               <th className="text-center px-2 py-2.5">Away%</th>
-              <th className="text-center px-2 py-2.5">PO</th>
+              <th className="text-center px-2 py-2.5" title="Distinct seasons that reached the playoffs">PO</th>
               <th className="text-center px-2 py-2.5">Finals</th>
               <th className="text-center px-2 py-2.5">🏆</th>
             </tr>
@@ -461,7 +463,7 @@ function OverallTeamsView({ matches, league }: { matches: MatchRow[]; league: Le
         </table>
       </div>
       <div className="px-3 py-2 text-[10px] text-muted-foreground italic border-t border-border/30">
-        PO = Playoff Appearances · Hover Hi/Lo for context
+        PO = Playoff Seasons (distinct seasons reaching playoffs) · Hover Hi/Lo for context
       </div>
     </Card>
   );

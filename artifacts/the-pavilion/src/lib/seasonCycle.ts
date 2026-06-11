@@ -24,10 +24,11 @@ const MEGA_RETENTION: RetentionBracket = {
   uncappedCost: 4,             // 1 uncapped slot
 };
 
-// Mini auction: cheaper retentions at original price + small premium
+// Mini auction: unlimited retentions (no count cap) — money simply deducts from purse at player price.
+// We expose generous bracket costs that scale gracefully; any extra retentions are charged at the last bracket.
 const MINI_RETENTION: RetentionBracket = {
-  costs: [14, 11, 8, 6],
-  uncappedCost: 4,
+  costs: [14, 11, 8, 6, 5, 5, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+  uncappedCost: 3,
 };
 
 /** Returns config for a given season number (1-indexed). Mega every 4th season. */
@@ -39,7 +40,8 @@ export function seasonCycleFor(seasonNumber: number): SeasonCycleConfig {
       purse: 120,
       retentionAllowed: seasonNumber > 1,
       minRetentions: 0,
-      maxRetentions: 6,
+      // Mega: hard cap 5 retentions total (≥1 must be uncapped — enforced in UI).
+      maxRetentions: 5,
       rtmCards: 2,
       retention: MEGA_RETENTION,
     };
@@ -49,7 +51,8 @@ export function seasonCycleFor(seasonNumber: number): SeasonCycleConfig {
     purse: 90,
     retentionAllowed: true,
     minRetentions: 0,
-    maxRetentions: 5,
+    // Mini auctions have no count cap — purse naturally limits retentions.
+    maxRetentions: 99,
     rtmCards: 0,
     retention: MINI_RETENTION,
   };

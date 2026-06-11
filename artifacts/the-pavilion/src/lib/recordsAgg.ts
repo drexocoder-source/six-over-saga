@@ -574,6 +574,10 @@ export function computeTeamOverall(matches: MatchRow[], allTeams: string[]): Tea
   // Track per-team result sequence for streaks
   const seq = new Map<string, ("W" | "L" | "T")[]>();
   allTeams.forEach(t => seq.set(t, []));
+  // Track distinct playoff/final seasons per team (so "PO" counts seasons, not matches)
+  const poSeasons = new Map<string, Set<number>>();
+  const finalSeasons = new Map<string, Set<number>>();
+  const titleSeasons = new Map<string, Set<number>>();
 
   for (const m of matches) {
     const i1 = m.scorecard?.innings1, i2 = m.scorecard?.innings2;
@@ -597,22 +601,13 @@ export function computeTeamOverall(matches: MatchRow[], allTeams: string[]): Tea
         r.lowestScore = myInn.runs;
         r.lowestDetail = `${myInn.runs}/${myInn.wickets} vs ${oppInn.battingTeam} (S${m.season_number ?? "?"})`;
       }
-      // Boundaries / wickets taken
       const fours = Object.values(myInn.bat as any).reduce((s: number, b: any) => s + (b.fours ?? 0), 0) as number;
       const sixes = Object.values(myInn.bat as any).reduce((s: number, b: any) => s + (b.sixes ?? 0), 0) as number;
       r.totalFours += fours; r.totalSixes += sixes;
       if (myInn.runs >= 150) r.total150s++;
       if (myInn.runs >= 200) r.total200s++;
-      const wktsTaken = Object.values(myInn.bowl as any).reduce((s: number, b: any) => s + (b.wickets ?? 0), 0) as number;
-      // Note: bowling stats live in *bowlingTeam*'s innings dict, which is the opp innings — fix below
-      const wkts = Object.values(oppInn.bowl as any).reduce((s: number, b: any) => s + (b.wickets ?? 0), 0) as number;
-      // Actually wickets taken by `team` = wickets fallen for `team` opponent = oppInn.wickets if team bowled second
-      // Simplest: wkts taken = (oppInn while bowling).wickets? The .bowl entries on each innings are bowlers of bowlingTeam.
-      // So wickets taken by `team` when bowling = oppInn.wickets (when oppInn = inn where team bowls, i.e. opp bats).
-      // oppInn.battingTeam !== team so oppInn.wickets is what team's bowlers took.
       r.totalWicketsTaken += oppInn.wickets;
 
-      // Result
       let res: "W" | "L" | "T";
       if (!m.winner) res = "T";
       else if (m.winner === team) res = "W";
@@ -622,7 +617,6 @@ export function computeTeamOverall(matches: MatchRow[], allTeams: string[]): Tea
       else r.ties++;
       seq.get(team)!.push(res);
 
-      // Home / away
       if (homeTeam) {
         if (homeTeam === team) {
           if (res === "W") r.homeWins++; else if (res === "L") r.homeLosses++;
@@ -631,16 +625,13 @@ export function computeTeamOverall(matches: MatchRow[], allTeams: string[]): Tea
         }
       }
 
-      // Chases / defends
       if (m.winner === team) {
         if (i2.battingTeam === team) {
-          // chased
           if (i2.runs > r.biggestChase) {
             r.biggestChase = i2.runs;
             r.biggestChaseDetail = `chased ${i1.runs + 1} vs ${i1.battingTeam}`;
           }
         } else {
-          // defended (batted first, won)
           if (i1.runs < r.lowestDefended) {
             r.lowestDefended = i1.runs;
             r.lowestDefendedDetail = `defended ${i1.runs} vs ${i2.battingTeam}`;
@@ -648,18 +639,24 @@ export function computeTeamOverall(matches: MatchRow[], allTeams: string[]): Tea
         }
       }
 
-      // Playoff / final markers
-      if (stage === "final") {
-        r.finalsPlayed++;
-        if (m.winner === team) r.titles++;
-      }
+      // Distinct-season playoff / final tracking
+      const sn = m.season_number ?? 0;
       if (["qualifier1", "eliminator", "qualifier2", "final"].includes(stage ?? "")) {
-        r.playoffApps++;
+        if (!poSeasons.has(team)) poSeasons.set(team, new Set());
+        poSeasons.get(team)!.add(sn);
+      }
+      if (stage === "final") {
+        if (!finalSeasons.has(team)) finalSeasons.set(team, new Set());
+        finalSeasons.get(team)!.add(sn);
+        if (m.winner === team) {
+          if (!titleSeasons.has(team)) titleSeasons.set(team, new Set());
+          titleSeasons.get(team)!.add(sn);
+        }
       }
     }
   }
 
-  // Streaks & %s
+  // Streaks & %s, plus distinct-season counts
   for (const [team, r] of map) {
     const s = seq.get(team) ?? [];
     let bw = 0, bl = 0, curW = 0, curL = 0;
@@ -677,6 +674,9 @@ export function computeTeamOverall(matches: MatchRow[], allTeams: string[]): Tea
     r.awayWinPct = awayM ? +((r.awayWins / awayM) * 100).toFixed(1) : 0;
     if (r.lowestScore === 9999) r.lowestScore = 0;
     if (r.lowestDefended === 9999) r.lowestDefended = 0;
+    r.playoffApps = poSeasons.get(team)?.size ?? 0;
+    r.finalsPlayed = finalSeasons.get(team)?.size ?? 0;
+    r.titles = titleSeasons.get(team)?.size ?? 0;
   }
   return [...map.values()].sort((a, b) => b.winPct - a.winPct || b.wins - a.wins);
 }
@@ -686,6 +686,10 @@ export interface CaptaincyRow {
   player_id: string; name: string; team: string;
   matches: number; wins: number; losses: number; ties: number; winPct: number;
   bestStreak: number; titles: number; finals: number;
+  /** Distinct seasons in which this captain led the team into any playoff match. */
+  playoffSeasons: number;
+  /** Distinct seasons captained. */
+  seasonsCaptained: number;
 }
 
 export async function computeCaptaincy(leagueId: string, matches: MatchRow[]): Promise<CaptaincyRow[]> {
@@ -699,11 +703,15 @@ export async function computeCaptaincy(leagueId: string, matches: MatchRow[]): P
   });
   const out = new Map<string, CaptaincyRow>();
   const seq = new Map<string, ("W"|"L"|"T")[]>();
+  const poSeasonsByCap = new Map<string, Set<number>>();
+  const seasonsByCap = new Map<string, Set<number>>();
+  const titleSeasonsByCap = new Map<string, Set<number>>();
+  const finalSeasonsByCap = new Map<string, Set<number>>();
   for (const m of matches) {
     for (const team of [m.team_a, m.team_b]) {
       const cap = capMap.get(`${m.season_id}|${team}`);
       if (!cap) continue;
-      const r = out.get(cap.id) ?? { player_id: cap.id, name: cap.name, team, matches: 0, wins: 0, losses: 0, ties: 0, winPct: 0, bestStreak: 0, titles: 0, finals: 0 };
+      const r = out.get(cap.id) ?? { player_id: cap.id, name: cap.name, team, matches: 0, wins: 0, losses: 0, ties: 0, winPct: 0, bestStreak: 0, titles: 0, finals: 0, playoffSeasons: 0, seasonsCaptained: 0 };
       r.matches++;
       let res: "W"|"L"|"T";
       if (!m.winner) res = "T";
@@ -714,7 +722,21 @@ export async function computeCaptaincy(leagueId: string, matches: MatchRow[]): P
       else r.ties++;
       const arr = seq.get(cap.id) ?? []; arr.push(res); seq.set(cap.id, arr);
       const stage = (m as any).stage;
-      if (stage === "final") { r.finals++; if (res === "W") r.titles++; }
+      const sn = m.season_number ?? 0;
+      if (!seasonsByCap.has(cap.id)) seasonsByCap.set(cap.id, new Set());
+      seasonsByCap.get(cap.id)!.add(sn);
+      if (["qualifier1", "eliminator", "qualifier2", "final"].includes(stage ?? "")) {
+        if (!poSeasonsByCap.has(cap.id)) poSeasonsByCap.set(cap.id, new Set());
+        poSeasonsByCap.get(cap.id)!.add(sn);
+      }
+      if (stage === "final") {
+        if (!finalSeasonsByCap.has(cap.id)) finalSeasonsByCap.set(cap.id, new Set());
+        finalSeasonsByCap.get(cap.id)!.add(sn);
+        if (res === "W") {
+          if (!titleSeasonsByCap.has(cap.id)) titleSeasonsByCap.set(cap.id, new Set());
+          titleSeasonsByCap.get(cap.id)!.add(sn);
+        }
+      }
       out.set(cap.id, r);
     }
   }
@@ -725,6 +747,10 @@ export async function computeCaptaincy(leagueId: string, matches: MatchRow[]): P
       if (x === "W") { cur++; best = Math.max(best, cur); } else cur = 0;
     }
     r.bestStreak = best;
+    r.playoffSeasons = poSeasonsByCap.get(id)?.size ?? 0;
+    r.seasonsCaptained = seasonsByCap.get(id)?.size ?? 0;
+    r.finals = finalSeasonsByCap.get(id)?.size ?? 0;
+    r.titles = titleSeasonsByCap.get(id)?.size ?? 0;
   }
   return [...out.values()].filter(r => r.matches >= 2).sort((a, b) => b.winPct - a.winPct || b.wins - a.wins);
 }

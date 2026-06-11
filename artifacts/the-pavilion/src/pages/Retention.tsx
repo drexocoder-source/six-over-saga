@@ -8,7 +8,7 @@ import { seasonCycleFor, retentionCost } from "@/lib/seasonCycle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Crown, Shield, Trophy, ArrowRight, X } from "lucide-react";
+import { Loader2, Crown, Shield, Trophy, ArrowRight, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Retention() {
@@ -65,6 +65,69 @@ export default function Retention() {
     });
   };
 
+  /** AI Retain — picks the best squad to retain for every team based on rating, role scarcity,
+   *  cycle limits (mega: 5 max + ≥1 uncapped), and remaining purse. Pure heuristic, no LLM. */
+  function aiRetainAll() {
+    if (!cycle) return;
+    const next: Record<string, Set<string>> = {};
+    const isMega = cycle.type === "mega";
+    const SOFT_PURSE_FLOOR = 30; // keep at least this much for auction
+    for (const tid of Object.keys(squads)) {
+      const roster = (squads[tid] ?? []).slice();
+      // Score: rating + role bonus (rare roles weigh more) + captaincy bonus
+      const roleCounts: Record<string, number> = {};
+      for (const s of roster) roleCounts[s.player.role] = (roleCounts[s.player.role] ?? 0) + 1;
+      const scored = roster.map(s => {
+        const rarity = 6 / Math.max(1, roleCounts[s.player.role]);
+        const capBonus = s.is_captain ? 8 : s.is_vice_captain ? 3 : 0;
+        return { s, score: (s.player.rating ?? 60) + rarity * 2 + capBonus };
+      }).sort((a, b) => b.score - a.score);
+
+      const picks = new Set<string>();
+      const capped = scored.filter(x => (x.s.player.rating ?? 0) >= 75);
+      const uncapped = scored.filter(x => (x.s.player.rating ?? 0) < 75);
+      let cappedIdx = 0;
+      let uncappedIdx = 0;
+      const cap = isMega ? 5 : 99;
+
+      // Mega rule: reserve 1 slot for uncapped if available
+      const reserveUncapped = isMega && uncapped.length > 0;
+      const cappedQuota = reserveUncapped ? cap - 1 : cap;
+
+      // Calculate cost as we go (mirrors retentionLines logic)
+      const calcCost = (cappedTaken: number, uncappedTaken: number) => {
+        let sum = 0;
+        for (let i = 0; i < cappedTaken; i++) sum += retentionCost(cycle, i + 1, false);
+        sum += uncappedTaken * cycle.retention.uncappedCost;
+        return sum;
+      };
+
+      // Greedily add capped players
+      let cappedTaken = 0, uncappedTaken = 0;
+      while (cappedTaken < cappedQuota && cappedIdx < capped.length) {
+        const candidate = capped[cappedIdx++];
+        const trial = calcCost(cappedTaken + 1, uncappedTaken);
+        if (cycle.purse - trial < SOFT_PURSE_FLOOR) break;
+        picks.add(candidate.s.player_id);
+        cappedTaken++;
+      }
+      // Add uncapped(s)
+      while (uncappedTaken < (cap - cappedTaken) && uncappedIdx < uncapped.length) {
+        // For mini, only add an uncapped if the player is high-rated for their tier
+        const candidate = uncapped[uncappedIdx++];
+        if (!isMega && (candidate.s.player.rating ?? 0) < 68) break;
+        const trial = calcCost(cappedTaken, uncappedTaken + 1);
+        if (cycle.purse - trial < SOFT_PURSE_FLOOR) break;
+        picks.add(candidate.s.player_id);
+        uncappedTaken++;
+        if (isMega && uncappedTaken >= 1 && cappedTaken + uncappedTaken >= cap) break;
+      }
+      next[tid] = picks;
+    }
+    setRetentions(next);
+    toast.success(`🤖 AI retained players for ${Object.keys(next).length} teams`);
+  }
+
   /** Returns ordered retention list for a team with computed bracket cost. */
   function retentionLines(teamId: string) {
     if (!cycle) return [] as { s: any; cost: number; uncapped: boolean }[];
@@ -112,7 +175,9 @@ export default function Retention() {
         <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {season.season_number} • RETENTION WINDOW · {cycle?.type.toUpperCase()} AUCTION</div>
         <h1 className="font-display text-4xl tracking-wider">{cycle?.type === "mega" ? "Mega" : "Mini"} Auction Retentions</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Pick up to <b className="text-primary">{cycle?.maxRetentions}</b> per team. Total purse: <b className="text-primary">₹{cycle?.purse}cr</b> · costs <b>deducted from auction purse</b> (IPL style).
+          {cycle?.type === "mega"
+            ? <>Pick up to <b className="text-primary">{cycle?.maxRetentions}</b> per team · <b>≥1 must be uncapped</b>. Total purse: <b className="text-primary">₹{cycle?.purse}cr</b>.</>
+            : <>Mini auction: <b className="text-primary">unlimited retentions</b> — cost simply deducts from the <b className="text-primary">₹{cycle?.purse}cr</b> purse.</>}
         </p>
         {cycle && (
           <div className="mt-3 grid grid-cols-2 md:grid-cols-6 gap-2 text-[11px]">
@@ -179,11 +244,16 @@ export default function Retention() {
         })}
       </div>
 
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-3">
         <Button variant="ghost" onClick={() => nav("/")}><X className="w-4 h-4 mr-1"/>Cancel</Button>
-        <Button size="lg" onClick={confirmRetentions} className="gradient-primary text-primary-foreground">
-          Lock Retentions & Open Auction <ArrowRight className="w-4 h-4 ml-2"/>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={aiRetainAll} className="border-primary/40 text-primary hover:bg-primary/10">
+            <Sparkles className="w-4 h-4 mr-2"/>AI Retain (auto-pick)
+          </Button>
+          <Button size="lg" onClick={confirmRetentions} className="gradient-primary text-primary-foreground">
+            Lock Retentions & Open Auction <ArrowRight className="w-4 h-4 ml-2"/>
+          </Button>
+        </div>
       </div>
     </div>
   );

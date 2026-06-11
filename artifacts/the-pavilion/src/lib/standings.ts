@@ -13,9 +13,19 @@ export interface PointsRow {
   rank?: number;
 }
 
-export async function generateScheduleForSeason(seasonId: string, teamIds: string[], seasonYear?: number, matchesPerTeam = 14) {
+export async function generateScheduleForSeason(
+  seasonId: string,
+  teamIds: string[],
+  seasonYear?: number,
+  matchesPerTeam = 14,
+  opts?: { seed?: number; openingMatch?: { home: string; away: string } }
+) {
   const startDate = seasonYear ? new Date(`${seasonYear}-03-22T19:30:00+05:30`) : undefined;
-  const sched = buildSchedule(teamIds, { startDate, matchesPerTeam });
+  const sched = buildSchedule(teamIds, {
+    startDate, matchesPerTeam,
+    seed: opts?.seed ?? (seasonYear ?? 1),
+    openingMatch: opts?.openingMatch,
+  });
   const rows = sched.map(m => ({
     season_id: seasonId,
     match_number: m.match_number,
