@@ -75,7 +75,29 @@ export default function Schedule() {
   async function refresh(lg: League, s: any) {
     const { data: existing } = await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number");
     if (!existing || existing.length === 0) {
-      await generateScheduleForSeason(s.id, lg.teams.map(t => t.id), s.year);
+      // IPL tradition: previous champion plays opener vs a (seeded) random opponent.
+      const teamIds = lg.teams.map(t => t.id);
+      const { data: prevFinal } = await supabase
+        .from("matches")
+        .select("winner, season_id, seasons!inner(league_id, season_number)")
+        .eq("stage", "final")
+        .eq("seasons.league_id", lg.id)
+        .order("match_number", { ascending: false })
+        .limit(1);
+      const prevChamp = (prevFinal as any[])?.[0]?.winner as string | undefined;
+      let openingMatch: { home: string; away: string } | undefined;
+      if (prevChamp && teamIds.includes(prevChamp)) {
+        // Seeded pick of opponent
+        let seed = (s.year ?? 1) * 31 + (s.season_number ?? 1);
+        const rng = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 0xffffffff; };
+        const opponents = teamIds.filter(t => t !== prevChamp);
+        const opp = opponents[Math.floor(rng() * opponents.length)];
+        openingMatch = { home: prevChamp, away: opp };
+      }
+      await generateScheduleForSeason(s.id, teamIds, s.year, 14, {
+        seed: (s.year ?? 1) * 1000 + (s.season_number ?? 1),
+        openingMatch,
+      });
       const { data: again } = await supabase.from("matches").select("*").eq("season_id", s.id).order("match_number");
       setMatches((again ?? []) as Match[]);
     } else {
