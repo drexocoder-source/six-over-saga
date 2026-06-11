@@ -44,33 +44,48 @@ export function buildSchedule(
   if (target >= 2 * (N - 1)) {
     for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) if (i !== j) pairs.push({ home: teams[i], away: teams[j] });
   } else {
-    // Single round-robin: random home assignment per pair
+    // Single round-robin: seeded home assignment per pair (varies each season).
     const rrHome: { home: string; away: string }[] = [];
     for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
-      const homeFirst = (i + j) % 2 === 0;
+      const homeFirst = rng() < 0.5;
       rrHome.push({ home: homeFirst ? teams[i] : teams[j], away: homeFirst ? teams[j] : teams[i] });
     }
-    // Doubles (return-leg) — pick a balanced k-regular graph. For 10 teams + target 14,
-    // this must produce 25 extra fixtures (not 24), so use a deterministic Havel-Hakimi pass.
+    // Doubles (return-leg): seeded greedy selection so rivalry pairs rotate yearly.
     const extra = Math.max(0, target - (N - 1));
     const second: { home: string; away: string }[] = [];
     const remaining: Record<string, number> = Object.fromEntries(teams.map(t => [t, extra]));
     const chosen = new Set<string>();
+    const shuffled = <T,>(arr: T[]): T[] => arr.map(v => [rng(), v] as const).sort((a, b) => a[0] - b[0]).map(([, v]) => v);
     while (Object.values(remaining).some(v => v > 0)) {
-      const a = [...teams].filter(t => remaining[t] > 0).sort((x, y) => remaining[y] - remaining[x])[0];
-      const b = [...teams]
+      const a = shuffled([...teams]).filter(t => remaining[t] > 0).sort((x, y) => remaining[y] - remaining[x])[0];
+      const b = shuffled([...teams])
         .filter(t => t !== a && remaining[t] > 0 && !chosen.has([a, t].sort().join("|")))
         .sort((x, y) => remaining[y] - remaining[x])[0];
       if (!a || !b) break;
       const key = [a, b].sort().join("|");
       const orig = rrHome.find(p => (p.home === a && p.away === b) || (p.home === b && p.away === a));
       if (!orig) break;
+      // Flip home for return leg (different from first meeting)
       second.push({ home: orig.away, away: orig.home });
       chosen.add(key);
       remaining[a]--; remaining[b]--;
     }
     pairs.push(...rrHome, ...second);
   }
+
+  // If an opening match was requested (e.g. previous champion vs random opponent), move it to the front.
+  if (opts?.openingMatch) {
+    const { home, away } = opts.openingMatch;
+    const idx = pairs.findIndex(p => (p.home === home && p.away === away) || (p.home === away && p.away === home));
+    if (idx > 0) {
+      const [pick] = pairs.splice(idx, 1);
+      // Force the requested home team to actually be home in the opener.
+      pairs.unshift({ home, away: pick.home === home ? pick.away : pick.home });
+    } else if (idx === -1) {
+      pairs.unshift({ home, away });
+    }
+  }
+
 
   // Greedy ordering with rest-day constraint: a team can't play 2 days in a row.
   // We slot one match per "day". Try to honor min-rest = 1 day (≥2 calendar days between).
