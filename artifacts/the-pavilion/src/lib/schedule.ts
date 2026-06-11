@@ -91,9 +91,18 @@ export function buildSchedule(
   // We slot one match per "day". Try to honor min-rest = 1 day (≥2 calendar days between).
   const ordered: { home: string; away: string }[] = [];
   const remaining = [...pairs];
+  // If an opener was requested, pin it to day 0 so the season starts with it.
+  if (opts?.openingMatch && remaining.length) {
+    const opener = remaining.shift()!;
+    ordered.push(opener);
+  }
   // Track last day a team played
   const lastDay: Record<string, number> = {};
-  let day = 0;
+  if (ordered.length) {
+    lastDay[ordered[0].home] = 0;
+    lastDay[ordered[0].away] = 0;
+  }
+  let day = ordered.length;
   while (remaining.length > 0) {
     // Find best pair for this day: both teams rested ≥ 1 day; prefer biggest rest.
     let pickIdx = -1;
