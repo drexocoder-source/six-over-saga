@@ -17,16 +17,26 @@ const HOME_OF: Record<string, string> = Object.fromEntries(
 );
 
 /** Build IPL-style schedule. Default = 14 matches per team (1 single round-robin + 5 extra rivalry second-legs).
- *  Pass `matchesPerTeam` to control: 14 (default) or 18 (full DRR home+away). */
+ *  Pass `matchesPerTeam` to control: 14 (default) or 18 (full DRR home+away).
+ *  Pass `seed` to vary the fixture list per season (e.g. season number). Same seed = same schedule. */
 export function buildSchedule(
   teams: string[],
-  opts?: { startDate?: Date; teamsCfg?: TeamConfig[]; matchesPerTeam?: number }
+  opts?: { startDate?: Date; teamsCfg?: TeamConfig[]; matchesPerTeam?: number; seed?: number; openingMatch?: { home: string; away: string } }
 ): ScheduledMatch[] {
   const homeOf: Record<string, string> = opts?.teamsCfg
     ? Object.fromEntries(opts.teamsCfg.map(t => [t.id, t.home ?? t.fullName]))
     : HOME_OF;
   const N = teams.length;
   const target = opts?.matchesPerTeam ?? 14;
+  // Seeded RNG (mulberry32) for stable, varied schedules per season.
+  let seedState = (opts?.seed ?? 1) >>> 0;
+  const rng = () => {
+    seedState = (seedState + 0x6D2B79F5) >>> 0;
+    let t = seedState;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 
   // Build pair list. For double round-robin (target = 2*(N-1)) we keep both home/away.
   // Otherwise: 1 single round-robin (each pair once) + up to `extraDoubles` per team as second legs.
