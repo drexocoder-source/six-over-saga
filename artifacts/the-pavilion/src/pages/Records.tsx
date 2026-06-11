@@ -430,7 +430,7 @@ function OverallTeamsView({ matches, league }: { matches: MatchRow[]; league: Le
               <th className="text-center px-2 py-2.5">Streak</th>
               <th className="text-center px-2 py-2.5">Home%</th>
               <th className="text-center px-2 py-2.5">Away%</th>
-              <th className="text-center px-2 py-2.5">PO</th>
+              <th className="text-center px-2 py-2.5" title="Distinct seasons that reached the playoffs">PO</th>
               <th className="text-center px-2 py-2.5">Finals</th>
               <th className="text-center px-2 py-2.5">🏆</th>
             </tr>
@@ -463,7 +463,7 @@ function OverallTeamsView({ matches, league }: { matches: MatchRow[]; league: Le
         </table>
       </div>
       <div className="px-3 py-2 text-[10px] text-muted-foreground italic border-t border-border/30">
-        PO = Playoff Appearances · Hover Hi/Lo for context
+        PO = Playoff Seasons (distinct seasons reaching playoffs) · Hover Hi/Lo for context
       </div>
     </Card>
   );
