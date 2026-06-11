@@ -175,7 +175,9 @@ export default function Retention() {
         <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {season.season_number} • RETENTION WINDOW · {cycle?.type.toUpperCase()} AUCTION</div>
         <h1 className="font-display text-4xl tracking-wider">{cycle?.type === "mega" ? "Mega" : "Mini"} Auction Retentions</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Pick up to <b className="text-primary">{cycle?.maxRetentions}</b> per team. Total purse: <b className="text-primary">₹{cycle?.purse}cr</b> · costs <b>deducted from auction purse</b> (IPL style).
+          {cycle?.type === "mega"
+            ? <>Pick up to <b className="text-primary">{cycle?.maxRetentions}</b> per team · <b>≥1 must be uncapped</b>. Total purse: <b className="text-primary">₹{cycle?.purse}cr</b>.</>
+            : <>Mini auction: <b className="text-primary">unlimited retentions</b> — cost simply deducts from the <b className="text-primary">₹{cycle?.purse}cr</b> purse.</>}
         </p>
         {cycle && (
           <div className="mt-3 grid grid-cols-2 md:grid-cols-6 gap-2 text-[11px]">
