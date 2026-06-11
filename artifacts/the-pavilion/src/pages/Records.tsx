@@ -308,8 +308,10 @@ function MegaRecordsView({ matches, league }: { matches: MatchRow[]; league: Lea
       <RecordCard key="cwp" title="Best Captain Win%" desc="Minimum 2 captaincy matches." emoji="📈" entries={capRows((a, b) => b.winPct - a.winPct, r => `${r.winPct}% win rate`)}/>,
       <RecordCard key="ct" title="Most Captain Ties" desc="Tied matches as skipper." emoji="🤝" entries={capRows((a, b) => b.ties - a.ties, r => `${r.ties} ties`)}/>,
       <RecordCard key="cs" title="Best Captain Streak" desc="Longest winning run as skipper." emoji="⚡" entries={capRows((a, b) => b.bestStreak - a.bestStreak, r => `${r.bestStreak} wins in a row`)}/>,
-      <RecordCard key="cf" title="Most Finals as Captain" desc="Final appearances as skipper." emoji="🎫" entries={capRows((a, b) => b.finals - a.finals, r => `${r.finals} finals`)}/>,
-      <RecordCard key="cti" title="Captain Titles" desc="Championships as skipper." emoji="🏅" entries={capRows((a, b) => b.titles - a.titles, r => `${r.titles} titles`)}/>,
+      <RecordCard key="csea" title="Most Seasons as Captain" desc="Distinct seasons leading a team." emoji="📅" entries={capRows((a, b) => (b as any).seasonsCaptained - (a as any).seasonsCaptained, r => `${(r as any).seasonsCaptained} season${(r as any).seasonsCaptained === 1 ? "" : "s"} captained`)}/>,
+      <RecordCard key="cpo" title="Most Playoff Seasons" desc="Distinct seasons leading team into playoffs." emoji="🎟️" entries={capRows((a, b) => (b as any).playoffSeasons - (a as any).playoffSeasons, r => `${(r as any).playoffSeasons} playoff season${(r as any).playoffSeasons === 1 ? "" : "s"}`)}/>,
+      <RecordCard key="cf" title="Most Finals as Captain" desc="Distinct final appearances." emoji="🎫" entries={capRows((a, b) => b.finals - a.finals, r => `${r.finals} final${r.finals === 1 ? "" : "s"}`)}/>,
+      <RecordCard key="cti" title="Captain Titles" desc="Championships as skipper." emoji="🏅" entries={capRows((a, b) => b.titles - a.titles, r => `${r.titles} title${r.titles === 1 ? "" : "s"}`)}/>,
     ],
   };
 
