@@ -8,7 +8,7 @@ import { seasonCycleFor, retentionCost } from "@/lib/seasonCycle";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Crown, Shield, Trophy, ArrowRight, X } from "lucide-react";
+import { Loader2, Crown, Shield, Trophy, ArrowRight, X, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 export default function Retention() {
@@ -64,6 +64,69 @@ export default function Retention() {
       return copy;
     });
   };
+
+  /** AI Retain — picks the best squad to retain for every team based on rating, role scarcity,
+   *  cycle limits (mega: 5 max + ≥1 uncapped), and remaining purse. Pure heuristic, no LLM. */
+  function aiRetainAll() {
+    if (!cycle) return;
+    const next: Record<string, Set<string>> = {};
+    const isMega = cycle.type === "mega";
+    const SOFT_PURSE_FLOOR = 30; // keep at least this much for auction
+    for (const tid of Object.keys(squads)) {
+      const roster = (squads[tid] ?? []).slice();
+      // Score: rating + role bonus (rare roles weigh more) + captaincy bonus
+      const roleCounts: Record<string, number> = {};
+      for (const s of roster) roleCounts[s.player.role] = (roleCounts[s.player.role] ?? 0) + 1;
+      const scored = roster.map(s => {
+        const rarity = 6 / Math.max(1, roleCounts[s.player.role]);
+        const capBonus = s.is_captain ? 8 : s.is_vice_captain ? 3 : 0;
+        return { s, score: (s.player.rating ?? 60) + rarity * 2 + capBonus };
+      }).sort((a, b) => b.score - a.score);
+
+      const picks = new Set<string>();
+      const capped = scored.filter(x => (x.s.player.rating ?? 0) >= 75);
+      const uncapped = scored.filter(x => (x.s.player.rating ?? 0) < 75);
+      let cappedIdx = 0;
+      let uncappedIdx = 0;
+      const cap = isMega ? 5 : 99;
+
+      // Mega rule: reserve 1 slot for uncapped if available
+      const reserveUncapped = isMega && uncapped.length > 0;
+      const cappedQuota = reserveUncapped ? cap - 1 : cap;
+
+      // Calculate cost as we go (mirrors retentionLines logic)
+      const calcCost = (cappedTaken: number, uncappedTaken: number) => {
+        let sum = 0;
+        for (let i = 0; i < cappedTaken; i++) sum += retentionCost(cycle, i + 1, false);
+        sum += uncappedTaken * cycle.retention.uncappedCost;
+        return sum;
+      };
+
+      // Greedily add capped players
+      let cappedTaken = 0, uncappedTaken = 0;
+      while (cappedTaken < cappedQuota && cappedIdx < capped.length) {
+        const candidate = capped[cappedIdx++];
+        const trial = calcCost(cappedTaken + 1, uncappedTaken);
+        if (cycle.purse - trial < SOFT_PURSE_FLOOR) break;
+        picks.add(candidate.s.player_id);
+        cappedTaken++;
+      }
+      // Add uncapped(s)
+      while (uncappedTaken < (cap - cappedTaken) && uncappedIdx < uncapped.length) {
+        // For mini, only add an uncapped if the player is high-rated for their tier
+        const candidate = uncapped[uncappedIdx++];
+        if (!isMega && (candidate.s.player.rating ?? 0) < 68) break;
+        const trial = calcCost(cappedTaken, uncappedTaken + 1);
+        if (cycle.purse - trial < SOFT_PURSE_FLOOR) break;
+        picks.add(candidate.s.player_id);
+        uncappedTaken++;
+        if (isMega && uncappedTaken >= 1 && cappedTaken + uncappedTaken >= cap) break;
+      }
+      next[tid] = picks;
+    }
+    setRetentions(next);
+    toast.success(`🤖 AI retained players for ${Object.keys(next).length} teams`);
+  }
 
   /** Returns ordered retention list for a team with computed bracket cost. */
   function retentionLines(teamId: string) {
