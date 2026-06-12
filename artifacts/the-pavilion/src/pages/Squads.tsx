@@ -7,9 +7,12 @@ import { teamLogo } from "@/lib/teamLogos";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle, Wand2 } from "lucide-react";
+import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle, Wand2, Sparkles, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { suggestNewCaptain, swapCaptain, getTeamCaptaincyStats, type CaptaincyStats } from "@/lib/captaincy";
 
 interface SquadRow { id: string; team_id: string; price: number; is_captain: boolean; is_vice_captain: boolean; players: any; }
 
@@ -30,6 +33,11 @@ export default function Squads() {
   const [rows, setRows] = useState<SquadRow[]>([]);
   const [agg, setAgg] = useState<Record<string, { runs: number; wkts: number; matches: Set<string> }>>({});
   const [loading, setLoading] = useState(true);
+  const [capDialog, setCapDialog] = useState<{ teamId: string; currentCaptainId: string | null } | null>(null);
+  const [capStats, setCapStats] = useState<CaptaincyStats[]>([]);
+  const [newCaptainId, setNewCaptainId] = useState<string>("");
+  const [aiSuggestion, setAiSuggestion] = useState<{ player_id: string; player_name: string; reason: string } | null>(null);
+  const [seasonStatus, setSeasonStatus] = useState<string>("");
 
   useEffect(() => { (async () => {
     const lg = await getOrCreateLeague();
@@ -60,6 +68,8 @@ export default function Squads() {
     if (!seasonId || !league) return;
     const { data } = await supabase.from("squads").select("*, players(*)").eq("season_id", seasonId);
     setRows((data ?? []) as any);
+    const sObj = seasons.find(x => x.id === seasonId);
+    setSeasonStatus(sObj?.status ?? "");
     // aggregate player career stats from all done matches
     const { data: matches } = await supabase.from("matches").select("id, scorecard, status, season_id").eq("status","done");
     const a: Record<string, { runs: number; wkts: number; matches: Set<string> }> = {};
@@ -78,7 +88,27 @@ export default function Squads() {
       });
     });
     setAgg(a);
-  })(); }, [seasonId, league]);
+  })(); }, [seasonId, league, seasons]);
+
+  async function openCaptaincyDialog(teamId: string) {
+    if (!league || !seasonId) return;
+    const currentCaptain = rows.find(r => r.team_id === teamId && r.is_captain);
+    setCapDialog({ teamId, currentCaptainId: currentCaptain?.players?.id ?? null });
+    setNewCaptainId("");
+    const stats = await getTeamCaptaincyStats(league.id, teamId);
+    setCapStats(stats);
+    const sug = await suggestNewCaptain(seasonId, teamId, currentCaptain?.players?.id ?? null);
+    setAiSuggestion(sug);
+  }
+
+  async function applyCaptainSwap(playerId: string) {
+    if (!capDialog || !seasonId) return;
+    await swapCaptain(seasonId, capDialog.teamId, playerId);
+    const { data } = await supabase.from("squads").select("*, players(*)").eq("season_id", seasonId);
+    setRows((data ?? []) as any);
+    toast.success("👑 Captain updated");
+    setCapDialog(null);
+  }
 
   if (loading || !league) return <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin text-primary"/></div>;
 
@@ -189,6 +219,9 @@ export default function Squads() {
                                 <AlertTriangle className="w-3 h-3"/> Vice-captain {viceRow?.players?.name ?? "(none)"} likely leads.
                               </div>
                             )}
+                            <Button size="sm" variant="ghost" onClick={() => openCaptaincyDialog(t.id)} className="mt-1 h-6 px-2 text-[10px] text-primary hover:text-primary">
+                              <Repeat className="w-3 h-3 mr-1"/> Change captain
+                            </Button>
                           </div>
                           <Stat label="Spend" value={`₹${totalSpend.toFixed(1)}`}/>
                         </div>
@@ -262,6 +295,95 @@ export default function Squads() {
           })}
         </Tabs>
       )}
+
+      {/* Captaincy swap dialog */}
+      <Dialog open={!!capDialog} onOpenChange={(open) => !open && setCapDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl flex items-center gap-2">
+              <Crown className="w-5 h-5 text-primary"/> Captaincy Dashboard — {capDialog?.teamId}
+            </DialogTitle>
+            <DialogDescription>
+              {seasonStatus !== "done" && (
+                <span className="text-amber-400">⚠ Mid-season swaps are rare in real life — usually done after a poor season.</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Captaincy record at this franchise</div>
+              <div className="border border-border/40 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-secondary/30 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2">Captain</th>
+                      <th className="text-right px-2 py-2">M</th>
+                      <th className="text-right px-2 py-2">W</th>
+                      <th className="text-right px-2 py-2">L</th>
+                      <th className="text-right px-2 py-2">Win%</th>
+                      <th className="text-right px-2 py-2">Finals</th>
+                      <th className="text-right px-3 py-2">🏆</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {capStats.length === 0 && (
+                      <tr><td colSpan={7} className="text-center py-4 text-muted-foreground">No captaincy history yet.</td></tr>
+                    )}
+                    {capStats.map(c => (
+                      <tr key={c.player_id} className="border-t border-border/30">
+                        <td className="px-3 py-2 font-medium">{c.player_name}</td>
+                        <td className="text-right px-2 py-2 font-mono">{c.matches}</td>
+                        <td className="text-right px-2 py-2 font-mono text-emerald-400">{c.wins}</td>
+                        <td className="text-right px-2 py-2 font-mono text-rose-400">{c.losses}</td>
+                        <td className={`text-right px-2 py-2 font-mono font-bold ${c.winPct >= 60 ? "text-emerald-400" : c.winPct < 35 ? "text-rose-400" : "text-primary"}`}>{c.winPct.toFixed(1)}%</td>
+                        <td className="text-right px-2 py-2 font-mono">{c.finalsReached}</td>
+                        <td className="text-right px-3 py-2 font-mono text-amber-400">{c.trophies}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {aiSuggestion && (
+              <div className="p-3 rounded-lg border border-primary/40 bg-primary/5 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5"/>
+                <div className="flex-1">
+                  <div className="text-xs uppercase tracking-widest text-primary">AI recommendation</div>
+                  <div className="text-sm mt-0.5">{aiSuggestion.reason}</div>
+                </div>
+                <Button size="sm" onClick={() => applyCaptainSwap(aiSuggestion.player_id)} className="gradient-primary text-primary-foreground">
+                  Apply
+                </Button>
+              </div>
+            )}
+
+            <div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Manual swap</div>
+              <div className="flex gap-2">
+                <Select value={newCaptainId} onValueChange={setNewCaptainId}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Pick a new captain…"/></SelectTrigger>
+                  <SelectContent>
+                    {rows.filter(r => r.team_id === capDialog?.teamId).map(r => (
+                      <SelectItem key={r.players?.id} value={r.players?.id} disabled={r.is_captain}>
+                        {r.players?.name} · {r.players?.role} · ⭐{r.players?.rating}{r.is_captain ? " (current)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => newCaptainId && applyCaptainSwap(newCaptainId)} disabled={!newCaptainId}>
+                  Swap
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCapDialog(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
