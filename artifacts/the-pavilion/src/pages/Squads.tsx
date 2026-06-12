@@ -33,6 +33,11 @@ export default function Squads() {
   const [rows, setRows] = useState<SquadRow[]>([]);
   const [agg, setAgg] = useState<Record<string, { runs: number; wkts: number; matches: Set<string> }>>({});
   const [loading, setLoading] = useState(true);
+  const [capDialog, setCapDialog] = useState<{ teamId: string; currentCaptainId: string | null } | null>(null);
+  const [capStats, setCapStats] = useState<CaptaincyStats[]>([]);
+  const [newCaptainId, setNewCaptainId] = useState<string>("");
+  const [aiSuggestion, setAiSuggestion] = useState<{ player_id: string; player_name: string; reason: string } | null>(null);
+  const [seasonStatus, setSeasonStatus] = useState<string>("");
 
   useEffect(() => { (async () => {
     const lg = await getOrCreateLeague();
