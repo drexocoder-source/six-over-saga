@@ -219,6 +219,9 @@ export default function Squads() {
                                 <AlertTriangle className="w-3 h-3"/> Vice-captain {viceRow?.players?.name ?? "(none)"} likely leads.
                               </div>
                             )}
+                            <Button size="sm" variant="ghost" onClick={() => openCaptaincyDialog(t.id)} className="mt-1 h-6 px-2 text-[10px] text-primary hover:text-primary">
+                              <Repeat className="w-3 h-3 mr-1"/> Change captain
+                            </Button>
                           </div>
                           <Stat label="Spend" value={`₹${totalSpend.toFixed(1)}`}/>
                         </div>
