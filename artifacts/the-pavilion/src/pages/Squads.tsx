@@ -7,9 +7,12 @@ import { teamLogo } from "@/lib/teamLogos";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle, Wand2 } from "lucide-react";
+import { Loader2, Crown, Star, Shield, HeartPulse, AlertTriangle, Wand2, Sparkles, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { suggestNewCaptain, swapCaptain, getTeamCaptaincyStats, type CaptaincyStats } from "@/lib/captaincy";
 
 interface SquadRow { id: string; team_id: string; price: number; is_captain: boolean; is_vice_captain: boolean; players: any; }
 
