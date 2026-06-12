@@ -68,6 +68,8 @@ export default function Squads() {
     if (!seasonId || !league) return;
     const { data } = await supabase.from("squads").select("*, players(*)").eq("season_id", seasonId);
     setRows((data ?? []) as any);
+    const sObj = seasons.find(x => x.id === seasonId);
+    setSeasonStatus(sObj?.status ?? "");
     // aggregate player career stats from all done matches
     const { data: matches } = await supabase.from("matches").select("id, scorecard, status, season_id").eq("status","done");
     const a: Record<string, { runs: number; wkts: number; matches: Set<string> }> = {};
@@ -86,7 +88,27 @@ export default function Squads() {
       });
     });
     setAgg(a);
-  })(); }, [seasonId, league]);
+  })(); }, [seasonId, league, seasons]);
+
+  async function openCaptaincyDialog(teamId: string) {
+    if (!league || !seasonId) return;
+    const currentCaptain = rows.find(r => r.team_id === teamId && r.is_captain);
+    setCapDialog({ teamId, currentCaptainId: currentCaptain?.players?.id ?? null });
+    setNewCaptainId("");
+    const stats = await getTeamCaptaincyStats(league.id, teamId);
+    setCapStats(stats);
+    const sug = await suggestNewCaptain(seasonId, teamId, currentCaptain?.players?.id ?? null);
+    setAiSuggestion(sug);
+  }
+
+  async function applyCaptainSwap(playerId: string) {
+    if (!capDialog || !seasonId) return;
+    await swapCaptain(seasonId, capDialog.teamId, playerId);
+    const { data } = await supabase.from("squads").select("*, players(*)").eq("season_id", seasonId);
+    setRows((data ?? []) as any);
+    toast.success("👑 Captain updated");
+    setCapDialog(null);
+  }
 
   if (loading || !league) return <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin text-primary"/></div>;
 
