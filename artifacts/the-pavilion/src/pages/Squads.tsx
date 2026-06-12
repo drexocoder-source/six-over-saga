@@ -295,6 +295,95 @@ export default function Squads() {
           })}
         </Tabs>
       )}
+
+      {/* Captaincy swap dialog */}
+      <Dialog open={!!capDialog} onOpenChange={(open) => !open && setCapDialog(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl flex items-center gap-2">
+              <Crown className="w-5 h-5 text-primary"/> Captaincy Dashboard — {capDialog?.teamId}
+            </DialogTitle>
+            <DialogDescription>
+              {seasonStatus !== "done" && (
+                <span className="text-amber-400">⚠ Mid-season swaps are rare in real life — usually done after a poor season.</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Captaincy record at this franchise</div>
+              <div className="border border-border/40 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-secondary/30 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    <tr>
+                      <th className="text-left px-3 py-2">Captain</th>
+                      <th className="text-right px-2 py-2">M</th>
+                      <th className="text-right px-2 py-2">W</th>
+                      <th className="text-right px-2 py-2">L</th>
+                      <th className="text-right px-2 py-2">Win%</th>
+                      <th className="text-right px-2 py-2">Finals</th>
+                      <th className="text-right px-3 py-2">🏆</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {capStats.length === 0 && (
+                      <tr><td colSpan={7} className="text-center py-4 text-muted-foreground">No captaincy history yet.</td></tr>
+                    )}
+                    {capStats.map(c => (
+                      <tr key={c.player_id} className="border-t border-border/30">
+                        <td className="px-3 py-2 font-medium">{c.player_name}</td>
+                        <td className="text-right px-2 py-2 font-mono">{c.matches}</td>
+                        <td className="text-right px-2 py-2 font-mono text-emerald-400">{c.wins}</td>
+                        <td className="text-right px-2 py-2 font-mono text-rose-400">{c.losses}</td>
+                        <td className={`text-right px-2 py-2 font-mono font-bold ${c.winPct >= 60 ? "text-emerald-400" : c.winPct < 35 ? "text-rose-400" : "text-primary"}`}>{c.winPct.toFixed(1)}%</td>
+                        <td className="text-right px-2 py-2 font-mono">{c.finalsReached}</td>
+                        <td className="text-right px-3 py-2 font-mono text-amber-400">{c.trophies}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {aiSuggestion && (
+              <div className="p-3 rounded-lg border border-primary/40 bg-primary/5 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-primary flex-shrink-0 mt-0.5"/>
+                <div className="flex-1">
+                  <div className="text-xs uppercase tracking-widest text-primary">AI recommendation</div>
+                  <div className="text-sm mt-0.5">{aiSuggestion.reason}</div>
+                </div>
+                <Button size="sm" onClick={() => applyCaptainSwap(aiSuggestion.player_id)} className="gradient-primary text-primary-foreground">
+                  Apply
+                </Button>
+              </div>
+            )}
+
+            <div>
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Manual swap</div>
+              <div className="flex gap-2">
+                <Select value={newCaptainId} onValueChange={setNewCaptainId}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Pick a new captain…"/></SelectTrigger>
+                  <SelectContent>
+                    {rows.filter(r => r.team_id === capDialog?.teamId).map(r => (
+                      <SelectItem key={r.players?.id} value={r.players?.id} disabled={r.is_captain}>
+                        {r.players?.name} · {r.players?.role} · ⭐{r.players?.rating}{r.is_captain ? " (current)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button onClick={() => newCaptainId && applyCaptainSwap(newCaptainId)} disabled={!newCaptainId}>
+                  Swap
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCapDialog(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
