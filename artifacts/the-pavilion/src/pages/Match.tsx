@@ -768,6 +768,8 @@ export default function Match() {
       status: "done", winner, result_text: text, player_of_match: potm?.id ?? null,
       scorecard: scorecard as never, state: engine as never,
     }).eq("id", match.id);
+    // Update local state so PostMatchPresentation shows the correct result immediately
+    setMatch((m: any) => ({ ...m, result_text: text, winner, status: "done" }));
 
     // Records (built-in + chairman-defined)
     await processRecords({ league_id: league.id, season_number: seasonNum, match_id: match.id }, scorecard as any);

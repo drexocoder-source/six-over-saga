@@ -23,11 +23,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import {
   Loader2, Trophy, Medal, Award, Sparkles, Info, Crown, Swords, BarChart3,
-  TrendingUp, Users, Heart, Target, Zap, Shield, Activity
+  TrendingUp, Users, Heart, Target, Zap, Shield, Activity, ListOrdered
 } from "lucide-react";
+import { teamLogo } from "@/lib/teamLogos";
 
 type Scope = "all" | "season" | "match";
-type SubTab = "mega" | "team" | "individual" | "milestones" | "overall" | "captaincy" | "h2h" | "advanced" | "phase" | "chase" | "playerdeep" | "seasonbests" | "fanvote" | "honours";
+type SubTab = "mega" | "team" | "individual" | "milestones" | "overall" | "captaincy" | "h2h" | "advanced" | "phase" | "chase" | "playerdeep" | "seasonbests" | "fanvote" | "honours" | "leaderboard";
 
 export default function Records() {
   const [league, setLeague] = useState<League | null>(null);
@@ -137,6 +138,7 @@ function SubTabs({ matches, league, allMatches }: { matches: MatchRow[]; league:
     <Tabs value={tab} onValueChange={(v) => setTab(v as SubTab)} className="mt-2">
       <div className="overflow-x-auto pb-1">
         <TabsList className="bg-secondary/30 h-auto flex-nowrap min-w-max">
+          <TabsTrigger value="leaderboard" className="text-xs"><ListOrdered className="w-3 h-3 mr-1"/>Leaderboard</TabsTrigger>
           <TabsTrigger value="honours" className="text-xs"><Trophy className="w-3 h-3 mr-1"/>Honours</TabsTrigger>
           <TabsTrigger value="mega" className="text-xs"><Sparkles className="w-3 h-3 mr-1"/>50+ Records</TabsTrigger>
           <TabsTrigger value="overall" className="text-xs"><Trophy className="w-3 h-3 mr-1"/>Teams Overall</TabsTrigger>
@@ -153,6 +155,7 @@ function SubTabs({ matches, league, allMatches }: { matches: MatchRow[]; league:
           <TabsTrigger value="fanvote" className="text-xs"><Heart className="w-3 h-3 mr-1"/>Fan Vote</TabsTrigger>
         </TabsList>
       </div>
+      <TabsContent value="leaderboard" className="mt-4"><LeaderboardView matches={matches} league={league}/></TabsContent>
       <TabsContent value="honours" className="mt-4"><HonoursView matches={matches} allMatches={allMatches} league={league}/></TabsContent>
       <TabsContent value="mega" className="mt-4"><MegaRecordsView matches={matches} league={league}/></TabsContent>
       <TabsContent value="overall" className="mt-4"><OverallTeamsView matches={matches} league={league}/></TabsContent>
@@ -174,34 +177,94 @@ function SubTabs({ matches, league, allMatches }: { matches: MatchRow[]; league:
 // ---- Shared row card ----
 interface RowItem { primary: string; primaryColor?: string; secondary?: string; secondaryColor?: string; detail: string; season_number?: number; }
 
-function RecordCard({ title, desc, emoji, entries }: { title: string; desc: string; emoji: string; entries: RowItem[] }) {
+const PODIUM_STYLES = [
+  { medal: "🥈", height: 64, bg: "rgba(148,163,184,0.12)", border: "rgba(148,163,184,0.25)", glow: "#94a3b8", label: "text-slate-300", value: "text-slate-200" },
+  { medal: "🥇", height: 88, bg: "rgba(250,204,21,0.12)", border: "rgba(250,204,21,0.3)",  glow: "#facc15", label: "text-yellow-300", value: "text-yellow-200" },
+  { medal: "🥉", height: 44, bg: "rgba(180,120,60,0.12)", border: "rgba(180,120,60,0.25)", glow: "#b47c3c", label: "text-amber-400", value: "text-amber-200" },
+];
+
+function PodiumRow({ entries }: { entries: RowItem[] }) {
+  // Render in Olympic order: 2nd (left), 1st (centre, tallest), 3rd (right)
+  const order = [1, 0, 2];
   return (
-    <Card className="p-4 gradient-card border-border/60 hover:border-primary/30 transition-colors">
-      <div className="flex items-start gap-2.5 mb-3">
+    <div className="flex items-end gap-1.5 px-3 pt-2 pb-0">
+      {order.map(idx => {
+        const entry = entries[idx];
+        const s = PODIUM_STYLES[idx];
+        if (!entry) return <div key={idx} className="flex-1" />;
+        const valuePart = entry.detail?.split("·")[0]?.trim() ?? "";
+        return (
+          <div key={idx} className="flex flex-col items-center flex-1 gap-0">
+            {/* Player card above podium */}
+            <div className="text-center px-1 mb-1.5 w-full">
+              <div className={`text-[11px] font-bold truncate leading-tight ${s.label}`}
+                style={entry.primaryColor ? { color: entry.primaryColor } : undefined}>
+                {entry.primary}
+              </div>
+              {entry.secondary && (
+                <div className="text-[9px] text-muted-foreground/70 truncate"
+                  style={entry.secondaryColor ? { color: entry.secondaryColor } : undefined}>
+                  {entry.secondary}
+                </div>
+              )}
+              <div className={`text-sm font-black font-mono ${s.value}`}>{valuePart}</div>
+            </div>
+            {/* Podium block */}
+            <div className="w-full rounded-t-lg flex items-end justify-center pb-1.5 relative overflow-hidden"
+              style={{
+                height: s.height,
+                background: s.bg,
+                border: `1px solid ${s.border}`,
+                borderBottom: "none",
+                boxShadow: `inset 0 1px 0 ${s.glow}22`,
+              }}>
+              <span className="text-lg">{s.medal}</span>
+              {idx === 0 && <span className="absolute top-1 right-1 text-[8px] font-bold text-yellow-400 opacity-40">#1</span>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RecordCard({ title, desc, emoji, entries }: { title: string; desc: string; emoji: string; entries: RowItem[] }) {
+  const top3 = entries.slice(0, 3);
+  const rest = entries.slice(3);
+  return (
+    <Card className="overflow-hidden gradient-card border-border/60 hover:border-primary/30 transition-colors">
+      <div className="flex items-start gap-2.5 px-4 pt-4 pb-1">
         <span className="text-2xl leading-none">{emoji}</span>
         <div className="flex-1">
           <div className="font-display text-base leading-tight">{title}</div>
           <div className="text-[10px] text-muted-foreground italic mt-0.5">{desc}</div>
         </div>
       </div>
-      <div className="space-y-1">
-        {entries.length === 0 && <div className="text-xs text-muted-foreground italic py-3 text-center">No entries yet.</div>}
-        {entries.map((r, i) => (
-          <div key={i} className={`flex items-center gap-2 text-xs py-1.5 px-2.5 rounded-md ${i === 0 ? "bg-primary/10 border border-primary/20" : "bg-secondary/20"}`}>
-            <span className={`w-5 text-center font-bold shrink-0 ${i === 0 ? "text-primary" : i === 1 ? "text-muted-foreground" : i === 2 ? "text-amber-600/70" : "text-muted-foreground/50"}`}>
-              {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `${i + 1}`}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-semibold truncate" style={r.primaryColor ? { color: r.primaryColor } : undefined}>{r.primary}</span>
-                {r.secondary && <span className="text-[10px] text-muted-foreground truncate" style={r.secondaryColor ? { color: r.secondaryColor } : undefined}>{r.secondary}</span>}
-              </div>
-              <div className="text-[10px] text-muted-foreground truncate mt-0.5">{r.detail}</div>
+      {entries.length === 0 ? (
+        <div className="text-xs text-muted-foreground italic py-4 text-center">No entries yet.</div>
+      ) : (
+        <>
+          <PodiumRow entries={top3} />
+          {/* Horizontal separator line (the stage floor) */}
+          <div className="mx-3 border-t border-border/40 mt-0 mb-2" />
+          {/* Positions 4+ as compact list */}
+          {rest.length > 0 && (
+            <div className="space-y-0.5 px-3 pb-3">
+              {rest.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-secondary/15">
+                  <span className="w-5 text-center font-mono text-[10px] text-muted-foreground/50 shrink-0">{i + 4}</span>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold truncate" style={r.primaryColor ? { color: r.primaryColor } : undefined}>{r.primary}</span>
+                    {r.secondary && <span className="text-[10px] text-muted-foreground ml-1.5" style={r.secondaryColor ? { color: r.secondaryColor } : undefined}>{r.secondary}</span>}
+                    <div className="text-[10px] text-muted-foreground truncate">{r.detail}</div>
+                  </div>
+                  {r.season_number != null && <span className="text-[9px] text-muted-foreground shrink-0 bg-secondary/50 px-1 rounded">S{r.season_number}</span>}
+                </div>
+              ))}
             </div>
-            {r.season_number != null && <span className="text-[9px] text-muted-foreground shrink-0 bg-secondary/50 px-1 rounded">S{r.season_number}</span>}
-          </div>
-        ))}
-      </div>
+          )}
+        </>
+      )}
     </Card>
   );
 }
@@ -964,6 +1027,115 @@ function FanVoteView({ matches, league }: { matches: MatchRow[]; league: League 
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEADERBOARD VIEW — Orange Cap, Purple Cap, SR kings, economy kings
+// ─────────────────────────────────────────────────────────────────────────────
+function LeaderboardView({ matches, league }: { matches: MatchRow[]; league: League }) {
+  const batters = useMemo(() => topBest(matches, "runs", 10), [matches]);
+  const bowlers = useMemo(() => topBest(matches, "wickets", 10), [matches]);
+  const sixers  = useMemo(() => topBest(matches, "sixes", 10),   [matches]);
+
+  if (matches.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <ListOrdered className="w-10 h-10 text-muted-foreground/30" />
+        <div className="font-display text-lg text-muted-foreground/60">No matches in this scope yet</div>
+        <div className="text-xs text-muted-foreground/40">Play some matches to see the leaderboard.</div>
+      </div>
+    );
+  }
+
+  function LBSection({ title, emoji, color, cap, rows, valueSuffix }: {
+    title: string; emoji: string; color: string; cap: string;
+    rows: IndEntry[]; valueSuffix?: string;
+  }) {
+    const top = rows[0];
+    return (
+      <div className="rounded-2xl border border-border/60 overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)" }}>
+        {/* Section header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40"
+          style={{ background: `linear-gradient(90deg, ${color}18 0%, transparent 70%)` }}>
+          <span className="text-3xl">{emoji}</span>
+          <div>
+            <div className="font-display text-lg tracking-wide">{title}</div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-widest">{cap}</div>
+          </div>
+          {top && (
+            <div className="ml-auto flex items-center gap-3">
+              <img src={teamLogo(top.team)} alt={top.team} className="w-8 h-8 object-contain opacity-70" />
+              <div className="text-right">
+                <div className="font-display text-2xl font-black" style={{ color }}>{top.value}{valueSuffix}</div>
+                <div className="text-xs text-muted-foreground">{top.name}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Podium top 3 */}
+        <div className="flex items-end gap-2 px-5 py-4">
+          {[rows[1], rows[0], rows[2]].map((e, slot) => {
+            if (!e) return <div key={slot} className="flex-1" />;
+            const rank = slot === 1 ? 1 : slot === 0 ? 2 : 3;
+            const podH = slot === 1 ? 80 : slot === 0 ? 56 : 40;
+            const medal = slot === 1 ? "🥇" : slot === 0 ? "🥈" : "🥉";
+            const glowC = slot === 1 ? "#facc15" : slot === 0 ? "#94a3b8" : "#b47c3c";
+            const tc = teamColor(e.team, league.teams);
+            return (
+              <div key={slot} className="flex flex-col items-center flex-1 min-w-0">
+                <img src={teamLogo(e.team)} alt={e.team} className="w-7 h-7 object-contain mb-1 opacity-80" />
+                <div className="text-center w-full px-0.5 mb-1">
+                  <div className="text-[11px] font-bold truncate" style={{ color: tc }}>{e.name}</div>
+                  <div className="text-[9px] text-muted-foreground truncate">{e.team}</div>
+                  <div className="font-black font-mono text-base" style={{ color }}>{e.value}{valueSuffix}</div>
+                </div>
+                <div className="w-full rounded-t-lg flex items-end justify-center pb-1 relative"
+                  style={{ height: podH, background: `${glowC}18`, border: `1px solid ${glowC}30`, borderBottom: "none" }}>
+                  <span className="text-base">{medal}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Rest of list */}
+        {rows.length > 3 && (
+          <div className="border-t border-border/30">
+            {rows.slice(3).map((e, i) => {
+              const tc = teamColor(e.team, league.teams);
+              return (
+                <div key={i} className="flex items-center gap-3 px-5 py-2 border-b border-border/20 last:border-0 hover:bg-secondary/10 transition-colors">
+                  <span className="w-6 text-center text-xs text-muted-foreground/50 font-mono">{i + 4}</span>
+                  <img src={teamLogo(e.team)} alt={e.team} className="w-6 h-6 object-contain opacity-60" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold" style={{ color: tc }}>{e.name}</span>
+                    <span className="text-[10px] text-muted-foreground ml-2">{e.team}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-sm" style={{ color }}>{e.value}{valueSuffix}</div>
+                    <div className="text-[9px] text-muted-foreground">{e.detail?.split("·").slice(1).join("·").trim()}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground italic">
+        <Info className="w-3 h-3 shrink-0" />
+        Leaderboard for the selected scope — change scope above to filter by season or match.
+      </div>
+      <LBSection title="Orange Cap" emoji="🧡" color="hsl(30 95% 55%)" cap="Most Runs" rows={batters} />
+      <LBSection title="Purple Cap" emoji="💜" color="hsl(270 70% 65%)" cap="Most Wickets" rows={bowlers} />
+      <LBSection title="Six Machine" emoji="🚀" color="hsl(195 80% 55%)" cap="Most Sixes" rows={sixers} />
     </div>
   );
 }

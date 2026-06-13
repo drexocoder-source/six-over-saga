@@ -693,9 +693,15 @@ export interface CaptaincyRow {
 }
 
 export async function computeCaptaincy(leagueId: string, matches: MatchRow[]): Promise<CaptaincyRow[]> {
+  // Must filter by league — squads table has no league_id, go via seasons
+  const { data: leagueSeasons } = await supabase.from("seasons").select("id").eq("league_id", leagueId);
+  const leagueSeasonIds = (leagueSeasons ?? []).map(s => s.id);
+  if (!leagueSeasonIds.length) return [];
+
   const { data: squads } = await supabase
     .from("squads")
     .select("season_id, team_id, player_id, is_captain, players(id, name)")
+    .in("season_id", leagueSeasonIds)
     .eq("is_captain", true);
   const capMap = new Map<string, { id: string; name: string }>();
   (squads ?? []).forEach((s: any) => {
