@@ -29,6 +29,7 @@ import AuthPage from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
+import AwardsVoting from "./pages/AwardsVoting";
 
 const queryClient = new QueryClient();
 
@@ -65,6 +66,7 @@ const App = () => (
               <Route path="/social" element={<Social />} />
               <Route path="/social/:handle" element={<SocialProfile />} />
               <Route path="/ceremony" element={<Ceremony />} />
+              <Route path="/awards" element={<AwardsVoting />} />
               <Route path="/chairman" element={<Chairman />} />
               <Route path="/multiverse" element={<Multiverse />} />
             </Route>

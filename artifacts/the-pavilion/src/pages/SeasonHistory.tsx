@@ -1,12 +1,13 @@
 // Season History — drill-down by season showing standings, awards, top performers
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getOrCreateLeague, type League } from "@/lib/league";
 import { teamColor } from "@/lib/teams";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Trophy, Crown, Calendar, Shirt } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, Trophy, Crown, Calendar, Shirt, TrendingUp } from "lucide-react";
 import { AWARD_META, type AwardKey } from "@/lib/awards";
 import { JerseyCard } from "@/components/JerseyCard";
 
@@ -26,6 +27,8 @@ export default function SeasonHistory() {
   const [loading, setLoading] = useState(true);
   const [activeSeason, setActiveSeason] = useState<number | null>(null);
   const [seasonStats, setSeasonStats] = useState<any | null>(null);
+  const [allTimeTeamStats, setAllTimeTeamStats] = useState<Record<string, Record<number, { W: number; L: number; P: number; runsFor: number; champion: boolean; runnerUp: boolean }>>>({});
+  const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
 
   const tcolor = (id: string) => teamColor(id, league?.teams);
 
@@ -50,6 +53,25 @@ export default function SeasonHistory() {
         // Auto-select latest done season or the most recent
         const target = (s.find((x: any) => x.status === "done") ?? s[0]) as any;
         setActiveSeason(target.season_number);
+
+        // Load all-time team stats across all seasons
+        const { data: allMatches } = await supabase
+          .from("matches").select("season_id, team_a, team_b, winner")
+          .eq("league_id", lg.id).eq("status", "done");
+        const seasonNumMap = new Map((s ?? []).map((sn: any) => [sn.id, sn.season_number]));
+        const champions = new Set((tr ?? []).filter((t: any) => t.award === "champion").map((t: any) => `${t.season_number}:${t.team_id}`));
+        const runnerUps = new Set((tr ?? []).filter((t: any) => t.award === "runnerup").map((t: any) => `${t.season_number}:${t.team_id}`));
+        const atts: Record<string, Record<number, { W: number; L: number; P: number; runsFor: number; champion: boolean; runnerUp: boolean }>> = {};
+        (allMatches ?? []).forEach((m: any) => {
+          const sn = seasonNumMap.get(m.season_id); if (sn == null) return;
+          [m.team_a, m.team_b].forEach(team => {
+            const rec = (atts[team] ??= {})[sn] ??= { W: 0, L: 0, P: 0, runsFor: 0, champion: champions.has(`${sn}:${team}`), runnerUp: runnerUps.has(`${sn}:${team}`) };
+            rec.P++;
+            if (m.winner === team) rec.W++; else if (m.winner) rec.L++;
+          });
+        });
+        setAllTimeTeamStats(atts);
+        if (lg.teams?.length) setSelectedTeam(lg.teams[0].id);
       }
       setLoading(false);
     })();
@@ -136,6 +158,7 @@ export default function SeasonHistory() {
             <TabsTrigger value="bowling">🎯 Top Bowlers</TabsTrigger>
             <TabsTrigger value="jerseys"><Shirt className="w-3 h-3 mr-1"/>Jerseys</TabsTrigger>
             <TabsTrigger value="matches">⚔️ Matches</TabsTrigger>
+            <TabsTrigger value="teamhistory">🏟️ Team History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="awards" className="mt-4">
@@ -277,6 +300,148 @@ export default function SeasonHistory() {
               ))}
             </div>
           </TabsContent>
+
+          {/* ====== TEAM HISTORY TAB ====== */}
+          <TabsContent value="teamhistory" className="mt-4">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs uppercase tracking-widest text-muted-foreground">Team:</span>
+                {league && (
+                  <div className="flex flex-wrap gap-2">
+                    {league.teams.map(team => (
+                      <button key={team.id} onClick={() => setSelectedTeam(team.id)}
+                        className={`px-3 py-1.5 rounded-lg border text-sm font-display tracking-wider transition-all ${
+                          selectedTeam === team.id
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border/60 bg-secondary/20 hover:bg-secondary/40"
+                        }`} style={selectedTeam === team.id ? { color: tcolor(team.id) } : {}}>
+                        {team.shortName ?? team.id}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedTeam && (() => {
+                const teamSeasons = allTimeTeamStats[selectedTeam] ?? {};
+                const sortedSeasons = Object.entries(teamSeasons).sort((a, b) => +a[0] - +b[0]);
+                const totalW = sortedSeasons.reduce((s, [, r]) => s + r.W, 0);
+                const totalL = sortedSeasons.reduce((s, [, r]) => s + r.L, 0);
+                const totalP = sortedSeasons.reduce((s, [, r]) => s + r.P, 0);
+                const titles = sortedSeasons.filter(([, r]) => r.champion).length;
+                const finals = sortedSeasons.filter(([, r]) => r.champion || r.runnerUp).length;
+                const winPct = totalP > 0 ? ((totalW / totalP) * 100).toFixed(1) : "—";
+
+                return (
+                  <div className="space-y-4">
+                    {/* Team summary bar */}
+                    <Card className="p-5 gradient-card border-border/60 relative overflow-hidden">
+                      <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-lg" style={{ background: tcolor(selectedTeam) }}/>
+                      <div className="pl-3">
+                        <div className="font-display text-2xl tracking-wider mb-3" style={{ color: tcolor(selectedTeam) }}>
+                          {league?.teams.find(t => t.id === selectedTeam)?.fullName ?? selectedTeam}
+                        </div>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 text-center text-xs">
+                          {[
+                            { k: "Seasons", v: sortedSeasons.length },
+                            { k: "Win %", v: `${winPct}%` },
+                            { k: "W / L", v: `${totalW} / ${totalL}` },
+                            { k: "Titles 🏆", v: titles },
+                            { k: "Finals", v: finals },
+                          ].map(({ k, v }) => (
+                            <div key={k} className="bg-secondary/30 rounded p-2">
+                              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{k}</div>
+                              <div className="font-display text-xl mt-0.5">{v}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Per-season table */}
+                    {sortedSeasons.length === 0 ? (
+                      <Card className="p-10 text-center gradient-card border-border/60 text-muted-foreground text-sm">No match data for this team yet.</Card>
+                    ) : (
+                      <Card className="gradient-card border-border/60 overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="text-[10px] uppercase tracking-widest text-muted-foreground bg-secondary/30">
+                            <tr>
+                              <th className="text-left px-4 py-2">Season</th>
+                              <th>P</th><th>W</th><th>L</th>
+                              <th className="text-left px-3">Win %</th>
+                              <th className="text-left px-3">Result</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sortedSeasons.map(([sn, rec]) => {
+                              const pct = rec.P > 0 ? ((rec.W / rec.P) * 100).toFixed(0) : 0;
+                              const seasonObj = seasons.find(s => s.season_number === +sn);
+                              return (
+                                <tr key={sn} className={`border-t border-border/30 ${rec.champion ? "bg-primary/5" : ""}`}>
+                                  <td className="px-4 py-2.5">
+                                    <button onClick={() => setActiveSeason(+sn)}
+                                      className="font-display tracking-wider hover:text-primary transition-colors">
+                                      Season {sn}
+                                    </button>
+                                    {seasonObj?.year && <span className="ml-2 text-[10px] text-muted-foreground">{seasonObj.year}</span>}
+                                  </td>
+                                  <td className="text-center font-mono">{rec.P}</td>
+                                  <td className="text-center font-mono text-primary font-semibold">{rec.W}</td>
+                                  <td className="text-center font-mono text-destructive">{rec.L}</td>
+                                  <td className="px-3">
+                                    <div className="flex items-center gap-1.5">
+                                      <div className="h-1.5 rounded-full bg-primary/20 w-16 overflow-hidden">
+                                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }}/>
+                                      </div>
+                                      <span className="text-[10px] text-muted-foreground">{pct}%</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-3">
+                                    {rec.champion && <Badge className="text-[9px] bg-primary/20 text-primary border-primary/30">🏆 Champions</Badge>}
+                                    {rec.runnerUp && !rec.champion && <Badge className="text-[9px] bg-secondary">🥈 Runners-up</Badge>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </Card>
+                    )}
+
+                    {/* Visual win-loss history bars */}
+                    {sortedSeasons.length > 0 && (
+                      <Card className="p-4 gradient-card border-border/60">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3 flex items-center gap-1.5">
+                          <TrendingUp className="w-3 h-3"/> Win/Loss Per Season
+                        </div>
+                        <div className="flex items-end gap-2 h-20">
+                          {sortedSeasons.map(([sn, rec]) => {
+                            const pct = rec.P > 0 ? (rec.W / rec.P) : 0;
+                            const barH = Math.round(pct * 64);
+                            return (
+                              <div key={sn} className="flex flex-col items-center gap-1 flex-1 min-w-0"
+                                title={`S${sn}: ${rec.W}W/${rec.L}L`}>
+                                <div className="relative w-full flex flex-col justify-end" style={{ height: 64 }}>
+                                  <div className={`w-full rounded-t transition-all ${rec.champion ? "bg-primary shadow-[0_0_8px_hsl(var(--primary))]" : "bg-primary/50"}`}
+                                    style={{ height: Math.max(barH, 2) }}/>
+                                </div>
+                                <span className="text-[9px] text-muted-foreground">{sn}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-2 flex items-center gap-3">
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-primary inline-block"/>Champion season</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-primary/50 inline-block"/>Regular season</span>
+                        </div>
+                      </Card>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </TabsContent>
+
         </Tabs>
       )}
     </div>

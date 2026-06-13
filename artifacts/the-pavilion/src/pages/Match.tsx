@@ -29,6 +29,7 @@ import { BallButtons } from "@/components/match/BallButtons";
 import { SpinWheel } from "@/components/match/SpinWheel";
 import { AiSimPanel, type CommentaryStyle, type Difficulty } from "@/components/match/AiSimPanel";
 import { CelebrationOverlay, type CelebrationEvent } from "@/components/match/CelebrationOverlay";
+import { MatchHighlights } from "@/components/match/MatchHighlights";
 import { newCelebrationTracker, detectCelebrations } from "@/lib/liveCelebrations";
 import { buildProbs, sampleOutcome, computePressure, aiCommentary, type SimContext } from "@/lib/aiSim";
 import { deriveAttrs, type PlayerAttrs } from "@/lib/skills";
@@ -1001,18 +1002,15 @@ export default function Match() {
           onClose={() => setCelebration(celebQueueRef.current.shift() ?? null)}
         />
 
-        {/* Match done banner */}
-        {phase === "done" && (
-          <Card className="p-6 gradient-card border-primary glow-primary text-center animate-scale-in">
-            <Trophy className="w-12 h-12 mx-auto text-primary" />
-            <div className="font-display text-4xl mt-2" style={{ color: tcolor(match.winner ?? "") }}>
-              {match.result_text ?? "Match Complete"}
-            </div>
-            <div className="flex gap-2 justify-center mt-4">
-              <Button onClick={() => nav("/schedule")} className="gradient-primary text-primary-foreground">Back to Fixtures</Button>
-              <Button variant="outline" onClick={() => nav("/records")}>View Records</Button>
-            </div>
-          </Card>
+        {/* Match done: rich highlights reel */}
+        {phase === "done" && engine && league && (
+          <MatchHighlights
+            engine={engine}
+            match={match}
+            potmName={potmName}
+            league={league}
+            onContinue={() => nav("/schedule")}
+          />
         )}
 
         {/* Needs batter overlay */}
