@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [league, setLeague] = useState<League | null>(null);
   const [stats, setStats] = useState({ players: 0, seasons: 0, matches: 0 });
   const [loading, setLoading] = useState(true);
+  const [startingSeason, setStartingseason] = useState(false);
   const [activeSeason, setActiveSeason] = useState<{ id: string; season_number: number; year: number; auction_status: string; status: string } | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
 
@@ -48,12 +49,13 @@ export default function Dashboard() {
   }, []);
 
   async function startNewSeason() {
-    if (!league) return;
+    if (!league || startingSeason) return;
     // Guard: if there's already an active (non-done) season, go there instead of creating a duplicate
     if (activeSeason && activeSeason.status !== "done") {
       nav(activeSeason.auction_status !== "done" ? "/auction" : "/schedule");
       return;
     }
+    setStartingseason(true);
     const nextNum = (activeSeason?.season_number ?? 0) + 1;
     const { data, error } = await supabase.from("seasons").insert({
       league_id: league.id,
@@ -62,7 +64,12 @@ export default function Dashboard() {
       auction_status: "pending",
       status: "auction",
     }).select().single();
-    if (error) { toast.error("Failed to start season"); return; }
+    setStartingseason(false);
+    if (error) {
+      console.error("[startNewSeason] error:", error);
+      toast.error(`Failed to start season: ${error.message}`);
+      return;
+    }
     if (data) nav("/auction");
   }
 
@@ -94,8 +101,9 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-col gap-2">
             {!activeSeason || activeSeason.status === "done" ? (
-              <Button size="lg" onClick={startNewSeason} className="gradient-primary text-primary-foreground font-semibold pulse-glow gap-2">
-                <Sparkles className="w-4 h-4" /> Start Season {(activeSeason?.season_number ?? 0) + 1}
+              <Button size="lg" onClick={startNewSeason} disabled={startingSeason} className="gradient-primary text-primary-foreground font-semibold pulse-glow gap-2">
+                {startingSeason ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {startingSeason ? "Starting…" : `Start Season ${(activeSeason?.season_number ?? 0) + 1}`}
               </Button>
             ) : (
               <Button size="lg" onClick={() => nav(activeSeason.auction_status !== "done" ? "/auction" : "/schedule")} className="gradient-primary text-primary-foreground font-semibold gap-2">
