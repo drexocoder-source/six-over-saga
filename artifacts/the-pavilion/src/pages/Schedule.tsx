@@ -9,6 +9,7 @@ import { computeQualification } from "@/lib/qualification";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { PointsTableCards } from "@/components/PointsTableCards";
 import { Loader2, Play, Trophy, CheckCircle2, Calendar, Flag } from "lucide-react";
 import { toast } from "sonner";
 
@@ -208,81 +209,17 @@ export default function Schedule() {
         </div>
       </div>
 
-      {/* Points Table */}
-      <Card className="gradient-card border-border/60 overflow-hidden">
-        <div className="p-4 flex items-center justify-between border-b border-border/60">
+      {/* Points Table — card + table view */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
           <div>
             <div className="text-xs uppercase tracking-widest text-muted-foreground">Points Table</div>
-            <div className="font-display text-xl">Standings</div>
+            <div className="font-display text-2xl tracking-wider flex items-center gap-2">Standings <Trophy className="w-5 h-5 text-primary"/></div>
           </div>
-          <Trophy className="w-5 h-5 text-primary" />
+          <div className="text-[10px] text-muted-foreground italic hidden md:block">Top 4 qualify · Click a card for scenario</div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-xs uppercase text-muted-foreground bg-secondary/40">
-              <tr>
-                <th className="px-3 py-2 text-left">#</th>
-                <th className="px-3 py-2 text-left">Team</th>
-                <th className="px-3 py-2 text-center">P</th>
-                <th className="px-3 py-2 text-center">W</th>
-                <th className="px-3 py-2 text-center">L</th>
-                <th className="px-3 py-2 text-center">T</th>
-                <th className="px-3 py-2 text-center font-bold text-primary">PTS</th>
-                <th className="px-3 py-2 text-center">NRR</th>
-                <th className="px-3 py-2 text-center">Qual%</th>
-                <th className="px-3 py-2 text-center">Form</th>
-              </tr>
-            </thead>
-            <tbody>
-              {table.map(r => {
-                const q = qual[r.team_id];
-                const badge = q?.status === "Q"
-                  ? <span title={q.scenario} className="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">Q</span>
-                  : q?.status === "E"
-                  ? <span title={q.scenario} className="inline-flex w-7 h-6 items-center justify-center rounded text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">E</span>
-                  : <span className={`inline-flex w-7 h-6 items-center justify-center rounded text-xs font-bold ${r.rank! <= 4 ? "bg-primary/30 text-primary" : "bg-secondary"}`}>{r.rank}</span>;
-                return (
-                <tr key={r.team_id} className={`border-t border-border/40 ${q?.status === "Q" ? "bg-emerald-500/5" : q?.status === "E" ? "bg-rose-500/5 opacity-70" : r.rank! <= 4 ? "bg-primary/5" : ""}`} title={q?.scenario}>
-                  <td className="px-3 py-3">{badge}</td>
-                  <td className="px-3 py-3 font-display text-lg" style={{ color: teamColor(r.team_id, league.teams) }}>
-                    {r.team_id}
-                    {q?.scenario && <div className="text-[9px] font-sans tracking-normal text-muted-foreground normal-case mt-0.5 max-w-[180px] truncate" title={q.scenario}>{q.scenario}</div>}
-                  </td>
-                  <td className="px-3 py-3 text-center font-mono">{r.P}</td>
-                  <td className="px-3 py-3 text-center font-mono text-[hsl(var(--boundary))]">{r.W}</td>
-                  <td className="px-3 py-3 text-center font-mono text-[hsl(var(--wicket))]">{r.L}</td>
-                  <td className="px-3 py-3 text-center font-mono">{r.T}</td>
-                  <td className="px-3 py-3 text-center font-mono font-bold text-primary text-lg">{r.pts}</td>
-                  <td className={`px-3 py-3 text-center font-mono ${r.nrr > 0 ? "text-[hsl(var(--boundary))]" : r.nrr < 0 ? "text-[hsl(var(--wicket))]" : ""}`}>
-                    {r.nrr > 0 ? "+" : ""}{r.nrr.toFixed(3)}
-                  </td>
-                  <td className="px-3 py-3 text-center">
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className={`text-xs font-bold font-mono ${q?.qualPct >= 75 ? "text-emerald-400" : q?.qualPct <= 15 ? "text-rose-400" : "text-primary"}`}>{q?.qualPct ?? 0}%</span>
-                      <div className="w-12 h-1 rounded-full bg-secondary/60 overflow-hidden">
-                        <div className={`h-full ${q?.qualPct >= 75 ? "bg-emerald-500" : q?.qualPct <= 15 ? "bg-rose-500" : "bg-primary"}`} style={{ width: `${q?.qualPct ?? 0}%` }}/>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-3">
-                    <div className="flex gap-0.5 justify-center">
-                      {r.form.length === 0 && <span className="text-muted-foreground text-xs">—</span>}
-                      {r.form.map((f,i) => (
-                        <span key={i} className={`w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center ${f==="W"?"bg-[hsl(var(--boundary))] text-background":f==="L"?"bg-[hsl(var(--wicket))] text-foreground":"bg-secondary"}`}>{f}</span>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              );})}
-            </tbody>
-          </table>
-        </div>
-        <div className="px-4 py-3 border-t border-border/40 flex flex-wrap gap-3 items-center text-[10px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold">Q</span> Qualified for playoffs</span>
-          <span className="inline-flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center font-bold">E</span> Mathematically eliminated</span>
-          <span className="ml-auto italic">Hover a row for the qualification scenario.</span>
-        </div>
-      </Card>
+        <PointsTableCards table={table} league={league} qual={qual} playoffSpots={4}/>
+      </div>
 
       {/* Playoff bracket */}
       {playoffMatches.length > 0 && (

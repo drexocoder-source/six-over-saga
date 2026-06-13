@@ -1059,3 +1059,305 @@ export function computeSeasonBests(matches: MatchRow[]): SeasonBest[] {
   }
   return out;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HONOURS & CAREER CLUB RECORDS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CareerClubMember {
+  name: string;
+  team: string;
+  value: number;
+  detail: string;
+}
+
+/** Players who have crossed a career run milestone (all-time) */
+export function careerRunsClub(matches: MatchRow[], threshold = 1000): CareerClubMember[] {
+  const agg = aggregate(matches);
+  return agg
+    .filter(a => a.runs >= threshold)
+    .sort((a, b) => b.runs - a.runs)
+    .map(a => ({
+      name: a.name,
+      team: a.team,
+      value: a.runs,
+      detail: `${a.runs} runs · ${a.matches.size} innings · avg ${a.matches.size > 0 ? (a.runs / a.matches.size).toFixed(1) : "—"}`,
+    }));
+}
+
+/** Players who have taken a wicket career milestone */
+export function careerWicketsClub(matches: MatchRow[], threshold = 50): CareerClubMember[] {
+  const agg = aggregate(matches);
+  return agg
+    .filter(a => a.wickets >= threshold)
+    .sort((a, b) => b.wickets - a.wickets)
+    .map(a => ({
+      name: a.name,
+      team: a.team,
+      value: a.wickets,
+      detail: `${a.wickets} wkts · econ ${a.bowlBalls > 0 ? ((a.bowlRuns / a.bowlBalls) * 6).toFixed(2) : "—"}`,
+    }));
+}
+
+/** Players with most career sixes */
+export function careerSixesClub(matches: MatchRow[], threshold = 50): CareerClubMember[] {
+  const agg = aggregate(matches);
+  return agg
+    .filter(a => a.sixes >= threshold)
+    .sort((a, b) => b.sixes - a.sixes)
+    .map(a => ({
+      name: a.name,
+      team: a.team,
+      value: a.sixes,
+      detail: `${a.sixes} sixes · ${a.fours} fours · ${a.runs} total runs`,
+    }));
+}
+
+/** Players with most career fours */
+export function careerFoursLeaders(matches: MatchRow[], limit = 10): CareerClubMember[] {
+  const agg = aggregate(matches);
+  return agg
+    .filter(a => a.fours > 0)
+    .sort((a, b) => b.fours - a.fours)
+    .slice(0, limit)
+    .map(a => ({
+      name: a.name,
+      team: a.team,
+      value: a.fours,
+      detail: `${a.fours} fours · ${a.sixes} sixes · SR ${a.balls > 0 ? ((a.runs / a.balls) * 100).toFixed(1) : "—"}`,
+    }));
+}
+
+/** Most 50+ scores across career */
+export function mostHalfCenturies(matches: MatchRow[], limit = 10): CareerClubMember[] {
+  const agg = aggregate(matches);
+  return agg
+    .filter(a => a.fifties > 0)
+    .sort((a, b) => (b.fifties + b.hundreds * 2) - (a.fifties + a.hundreds * 2))
+    .slice(0, limit)
+    .map(a => ({
+      name: a.name,
+      team: a.team,
+      value: a.fifties + a.hundreds,
+      detail: `${a.hundreds}×100 · ${a.fifties}×50 · ${a.runs} total runs`,
+    }));
+}
+
+export interface WinStreak {
+  team: string;
+  streak: number;
+  type: "win" | "loss";
+  matchNumbers: number[];
+}
+
+/** Longest consecutive win/loss streaks per team */
+export function computeWinStreaks(matches: MatchRow[]): WinStreak[] {
+  const byTeam = new Map<string, { result: "W" | "L"; matchNum: number }[]>();
+  const sorted = [...matches].sort((a, b) => (a.match_number ?? 0) - (b.match_number ?? 0));
+  for (const m of sorted) {
+    if (!m.winner && !m.scorecard) continue;
+    const teams = [m.team_a, m.team_b];
+    for (const t of teams) {
+      if (!byTeam.has(t)) byTeam.set(t, []);
+      byTeam.get(t)!.push({
+        result: m.winner === t ? "W" : "L",
+        matchNum: m.match_number ?? 0,
+      });
+    }
+  }
+
+  const streaks: WinStreak[] = [];
+  for (const [team, results] of byTeam.entries()) {
+    for (const type of ["win", "loss"] as const) {
+      const ch = type === "win" ? "W" : "L";
+      let best = 0, cur = 0, bestNums: number[] = [], curNums: number[] = [];
+      for (const r of results) {
+        if (r.result === ch) {
+          cur++;
+          curNums.push(r.matchNum);
+          if (cur > best) { best = cur; bestNums = [...curNums]; }
+        } else {
+          cur = 0;
+          curNums = [];
+        }
+      }
+      if (best >= 3) {
+        streaks.push({ team, streak: best, type, matchNumbers: bestNums });
+      }
+    }
+  }
+  return streaks.sort((a, b) => b.streak - a.streak);
+}
+
+/** Fastest to career run milestones (by total balls faced across career) */
+export interface FastestCareerEntry {
+  name: string;
+  team: string;
+  milestone: number;
+  ballsFaced: number;
+  matchesPlayed: number;
+  detail: string;
+}
+
+export function fastestToCareerRuns(matches: MatchRow[], milestone = 1000, limit = 10): FastestCareerEntry[] {
+  const playerMap = new Map<string, { runs: number; balls: number; matches: number; team: string }>();
+  const sorted = [...matches].sort((a, b) => (a.match_number ?? 0) - (b.match_number ?? 0));
+
+  for (const m of sorted) {
+    const sc = m.scorecard;
+    if (!sc) continue;
+    for (const inn of [sc.innings1, sc.innings2]) {
+      if (!inn?.bat) continue;
+      for (const b of Object.values(inn.bat) as any[]) {
+        const key = b.name;
+        if (!playerMap.has(key)) playerMap.set(key, { runs: 0, balls: 0, matches: 0, team: inn.battingTeam });
+        const entry = playerMap.get(key)!;
+        entry.runs += b.runs ?? 0;
+        entry.balls += b.balls ?? 0;
+        entry.matches++;
+        entry.team = inn.battingTeam;
+      }
+    }
+  }
+
+  const results: FastestCareerEntry[] = [];
+  for (const [name, data] of playerMap.entries()) {
+    if (data.runs >= milestone) {
+      results.push({
+        name,
+        team: data.team,
+        milestone,
+        ballsFaced: data.balls,
+        matchesPlayed: data.matches,
+        detail: `${data.runs} runs in ${data.balls} balls (${data.matches} innings)`,
+      });
+    }
+  }
+  return results.sort((a, b) => a.ballsFaced - b.ballsFaced).slice(0, limit);
+}
+
+/** Players with most not-out innings (iron man) */
+export function mostNotOuts(matches: MatchRow[], limit = 10): CareerClubMember[] {
+  const notOuts = new Map<string, { count: number; team: string; totalRuns: number }>();
+  for (const m of matches) {
+    const sc = m.scorecard;
+    if (!sc) continue;
+    for (const inn of [sc.innings1, sc.innings2]) {
+      if (!inn?.bat) continue;
+      for (const b of Object.values(inn.bat) as any[]) {
+        if (!b.out && (b.runs ?? 0) > 0) {
+          if (!notOuts.has(b.name)) notOuts.set(b.name, { count: 0, team: inn.battingTeam, totalRuns: 0 });
+          const e = notOuts.get(b.name)!;
+          e.count++;
+          e.totalRuns += b.runs ?? 0;
+          e.team = inn.battingTeam;
+        }
+      }
+    }
+  }
+  return [...notOuts.entries()]
+    .map(([name, d]) => ({ name, team: d.team, value: d.count, detail: `${d.count}× not out · ${d.totalRuns} runs unbeaten` }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, limit);
+}
+
+/** Highest individual scores in a single innings (top scores ever) */
+export function topIndividualInnings(matches: MatchRow[], limit = 15): IndEntry[] {
+  return topBatScores(matches, limit);
+}
+
+/** Most matches as captain (from captains field in match) */
+export interface CaptainAppearance {
+  name: string;
+  team: string;
+  matches: number;
+  wins: number;
+  winPct: number;
+}
+
+export function captainMostMatches(matches: MatchRow[], limit = 10): CaptainAppearance[] {
+  const cap = new Map<string, { team: string; matches: number; wins: number }>();
+  for (const m of matches) {
+    const sc = m.scorecard as any;
+    if (!sc) continue;
+    for (const inn of [sc.innings1, sc.innings2]) {
+      if (!inn?.captain) continue;
+      const key = `${inn.captain}::${inn.battingTeam}`;
+      if (!cap.has(key)) cap.set(key, { team: inn.battingTeam, matches: 0, wins: 0 });
+      const e = cap.get(key)!;
+      e.matches++;
+      if (m.winner === inn.battingTeam) e.wins++;
+    }
+  }
+  return [...cap.entries()]
+    .map(([key, d]) => ({
+      name: key.split("::")[0],
+      team: d.team,
+      matches: d.matches,
+      wins: d.wins,
+      winPct: d.matches > 0 ? Math.round((d.wins / d.matches) * 100) : 0,
+    }))
+    .sort((a, b) => b.matches - a.matches)
+    .slice(0, limit);
+}
+
+/** Biggest upsets — lowest-ranked team beating highest-ranked team */
+export function mostRunsInAMatch(matches: MatchRow[], limit = 10): TeamEntry[] {
+  const out: TeamEntry[] = [];
+  for (const m of matches) {
+    const sc = m.scorecard;
+    if (!sc?.innings1) continue;
+    const t1 = sc.innings1.runs ?? 0;
+    const t2 = sc.innings2?.runs ?? 0;
+    const total = t1 + t2;
+    out.push({
+      team: m.team_a,
+      vs: m.team_b,
+      value: total,
+      match_id: m.id,
+      season_number: m.season_number,
+      detail: `${m.team_a} ${t1}/${sc.innings1.wickets ?? 0} vs ${m.team_b} ${t2}/${sc.innings2?.wickets ?? 0} — Total: ${total} runs`,
+    });
+  }
+  return out.sort((a, b) => b.value - a.value).slice(0, limit);
+}
+
+/** Award winners from trophies table — async */
+export interface AwardWin {
+  player: string;
+  team: string;
+  count: number;
+  seasons: number[];
+  detail: string;
+}
+
+export async function computeAwardWins(leagueId: string, awardType: string): Promise<AwardWin[]> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data } = await supabase
+    .from("trophies")
+    .select("player_name, team_id, season_number")
+    .eq("league_id", leagueId)
+    .eq("award", awardType)
+    .order("season_number", { ascending: true });
+
+  if (!data?.length) return [];
+
+  const map = new Map<string, AwardWin>();
+  for (const d of data) {
+    const key = d.player_name ?? "Unknown";
+    if (!map.has(key)) {
+      map.set(key, { player: key, team: d.team_id ?? "", count: 0, seasons: [], detail: "" });
+    }
+    const e = map.get(key)!;
+    e.count++;
+    if (d.season_number) e.seasons.push(d.season_number);
+    e.team = d.team_id ?? e.team;
+  }
+
+  return [...map.values()]
+    .sort((a, b) => b.count - a.count)
+    .map(e => ({
+      ...e,
+      detail: `Won ${e.count}× · Seasons: ${e.seasons.join(", ")}`,
+    }));
+}

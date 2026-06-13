@@ -10,6 +10,9 @@ import {
   milestones, computeTeamOverall, computeCaptaincy, computeH2H, computeAdvanced,
   computePhaseStats, computeChaseSuccessRate, computeTossStats, computeCollapseStats,
   computePlayerDeepStats, computeSeasonBests,
+  careerRunsClub, careerWicketsClub, careerSixesClub, careerFoursLeaders, mostHalfCenturies,
+  computeWinStreaks, fastestToCareerRuns, mostNotOuts, mostRunsInAMatch,
+  captainMostMatches, computeAwardWins,
   type MatchRow, type IndEntry, type TeamEntry, type Milestone,
   type TeamOverallRow, type CaptaincyRow, type H2HCell, type AdvancedRow,
 } from "@/lib/recordsAgg";
@@ -24,7 +27,7 @@ import {
 } from "lucide-react";
 
 type Scope = "all" | "season" | "match";
-type SubTab = "mega" | "team" | "individual" | "milestones" | "overall" | "captaincy" | "h2h" | "advanced" | "phase" | "chase" | "playerdeep" | "seasonbests" | "fanvote";
+type SubTab = "mega" | "team" | "individual" | "milestones" | "overall" | "captaincy" | "h2h" | "advanced" | "phase" | "chase" | "playerdeep" | "seasonbests" | "fanvote" | "honours";
 
 export default function Records() {
   const [league, setLeague] = useState<League | null>(null);
@@ -128,11 +131,13 @@ function ScopeNote({ text }: { text: string }) {
 }
 
 function SubTabs({ matches, league, allMatches }: { matches: MatchRow[]; league: League; allMatches: MatchRow[] }) {
+  // HonoursView needs league.id — pass allMatches so it can query across all time
   const [tab, setTab] = useState<SubTab>("mega");
   return (
     <Tabs value={tab} onValueChange={(v) => setTab(v as SubTab)} className="mt-2">
       <div className="overflow-x-auto pb-1">
         <TabsList className="bg-secondary/30 h-auto flex-nowrap min-w-max">
+          <TabsTrigger value="honours" className="text-xs"><Trophy className="w-3 h-3 mr-1"/>Honours</TabsTrigger>
           <TabsTrigger value="mega" className="text-xs"><Sparkles className="w-3 h-3 mr-1"/>50+ Records</TabsTrigger>
           <TabsTrigger value="overall" className="text-xs"><Trophy className="w-3 h-3 mr-1"/>Teams Overall</TabsTrigger>
           <TabsTrigger value="team" className="text-xs"><Shield className="w-3 h-3 mr-1"/>Team Bests</TabsTrigger>
@@ -148,6 +153,7 @@ function SubTabs({ matches, league, allMatches }: { matches: MatchRow[]; league:
           <TabsTrigger value="fanvote" className="text-xs"><Heart className="w-3 h-3 mr-1"/>Fan Vote</TabsTrigger>
         </TabsList>
       </div>
+      <TabsContent value="honours" className="mt-4"><HonoursView matches={matches} allMatches={allMatches} league={league}/></TabsContent>
       <TabsContent value="mega" className="mt-4"><MegaRecordsView matches={matches} league={league}/></TabsContent>
       <TabsContent value="overall" className="mt-4"><OverallTeamsView matches={matches} league={league}/></TabsContent>
       <TabsContent value="team" className="mt-4"><TeamView matches={matches} league={league}/></TabsContent>
@@ -957,6 +963,203 @@ function FanVoteView({ matches, league }: { matches: MatchRow[]; league: League 
             )}
           </Card>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HONOURS VIEW — Award wins, Career Clubs, Streaks, Fastest milestones
+// ─────────────────────────────────────────────────────────────────────────────
+function HonoursView({ matches, allMatches, league }: { matches: MatchRow[]; allMatches: MatchRow[]; league: League }) {
+  const [awardWins, setAwardWins] = useState<Record<string, any[]>>({});
+  const [loadingAwards, setLoadingAwards] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoadingAwards(true);
+      const [orange, purple, mvp, boss, strike] = await Promise.all([
+        computeAwardWins(league.id, "orange_cap"),
+        computeAwardWins(league.id, "purple_cap"),
+        computeAwardWins(league.id, "mvp"),
+        computeAwardWins(league.id, "universe_boss"),
+        computeAwardWins(league.id, "strike_lord"),
+      ]);
+      setAwardWins({ orange_cap: orange, purple_cap: purple, mvp, universe_boss: boss, strike_lord: strike });
+      setLoadingAwards(false);
+    })();
+  }, [league.id]);
+
+  const runs1000 = careerRunsClub(allMatches, 1000);
+  const runs500  = careerRunsClub(allMatches, 500);
+  const wkts50   = careerWicketsClub(allMatches, 50);
+  const wkts25   = careerWicketsClub(allMatches, 25);
+  const sixers50 = careerSixesClub(allMatches, 50);
+  const sixers30 = careerSixesClub(allMatches, 30);
+  const fifties  = mostHalfCenturies(allMatches, 10);
+  const notOuts  = mostNotOuts(allMatches, 10);
+  const foursL   = careerFoursLeaders(allMatches, 10);
+  const streaks  = computeWinStreaks(allMatches);
+  const fastest1000 = fastestToCareerRuns(allMatches, 1000, 10);
+  const fastest500  = fastestToCareerRuns(allMatches, 500, 10);
+  const highestRunMatch = mostRunsInAMatch(allMatches, 10);
+  const captains = captainMostMatches(allMatches, 10);
+
+  const toRowItem = (e: any, valFmt: (v: number) => string) => ({
+    primary: e.name ?? e.player ?? e.team,
+    secondary: e.team ? `(${e.team})` : undefined,
+    secondaryColor: e.team ? teamColor(e.team, league.teams) : undefined,
+    detail: e.detail ?? valFmt(e.value ?? e.count ?? 0),
+  });
+
+  const awardSections = [
+    { key: "orange_cap", emoji: "🟠", title: "Most Orange Caps", desc: "Players who've won the Orange Cap (most runs in a season) most times" },
+    { key: "purple_cap", emoji: "🟣", title: "Most Purple Caps", desc: "Players who've won the Purple Cap (most wickets in a season) most times" },
+    { key: "mvp", emoji: "🏅", title: "Most MVP Awards", desc: "Players who've won the season MVP award most times" },
+    { key: "universe_boss", emoji: "💥", title: "Most Universe Boss Titles", desc: "Players with most six-hitting crowns" },
+    { key: "strike_lord", emoji: "⚡", title: "Most Strike Lord Awards", desc: "Players with best in-season strike rate — most wins" },
+  ];
+
+  return (
+    <div className="space-y-8">
+      {/* Award Winners */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Trophy className="w-5 h-5 text-primary"/>
+          <div className="font-display text-2xl tracking-wider">Award Honours Board</div>
+        </div>
+        {loadingAwards ? (
+          <div className="flex items-center gap-2 text-muted-foreground text-sm"><Loader2 className="w-4 h-4 animate-spin"/>Loading award history…</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {awardSections.map(sec => (
+              <RecordCard key={sec.key} emoji={sec.emoji} title={sec.title} desc={sec.desc}
+                entries={(awardWins[sec.key] ?? []).map(e => ({
+                  primary: e.player,
+                  detail: e.detail,
+                }))}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Career Clubs */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Medal className="w-5 h-5 text-primary"/>
+          <div className="font-display text-2xl tracking-wider">Career Clubs & Milestones</div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <RecordCard emoji="🏏" title="1000 Runs Club"
+            desc="Players who've scored 1000+ career runs"
+            entries={runs1000.map(e => toRowItem(e, v => `${v} runs`))}/>
+          <RecordCard emoji="🥅" title="500 Runs Club"
+            desc="Players who've crossed 500 career runs"
+            entries={runs500.slice(0, 10).map(e => toRowItem(e, v => `${v} runs`))}/>
+          <RecordCard emoji="🎳" title="50 Wickets Club"
+            desc="Bowlers with 50+ career wickets"
+            entries={wkts50.map(e => toRowItem(e, v => `${v} wickets`))}/>
+          <RecordCard emoji="⚾" title="25 Wickets Club"
+            desc="Bowlers with 25+ career wickets"
+            entries={wkts25.slice(0, 10).map(e => toRowItem(e, v => `${v} wickets`))}/>
+          <RecordCard emoji="💥" title="50 Sixes Club"
+            desc="Batters with 50+ career sixes"
+            entries={sixers50.map(e => toRowItem(e, v => `${v} sixes`))}/>
+          <RecordCard emoji="🔥" title="30 Sixes Club"
+            desc="Batters with 30+ career sixes"
+            entries={sixers30.slice(0, 10).map(e => toRowItem(e, v => `${v} sixes`))}/>
+          <RecordCard emoji="🟡" title="Most Half-Centuries"
+            desc="Players with most 50+ scores (50s + 100s) in career"
+            entries={fifties.map(e => toRowItem(e, v => `${v} 50+ scores`))}/>
+          <RecordCard emoji="🏋️" title="Most Fours (Career)"
+            desc="Batters who've hit the most fours ever"
+            entries={foursL.map(e => toRowItem(e, v => `${v} fours`))}/>
+          <RecordCard emoji="🛡️" title="Iron Guard — Most Not Outs"
+            desc="Players who've finished not out the most times"
+            entries={notOuts.map(e => toRowItem(e, v => `${v}× not out`))}/>
+        </div>
+      </div>
+
+      {/* Speed Records */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Zap className="w-5 h-5 text-primary"/>
+          <div className="font-display text-2xl tracking-wider">Fastest to Milestones</div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <RecordCard emoji="⚡" title="Fastest to 1000 Career Runs"
+            desc="Fewest balls faced to reach 1000 career runs"
+            entries={fastest1000.map(e => ({
+              primary: e.name,
+              secondary: `(${e.team})`,
+              secondaryColor: teamColor(e.team, league.teams),
+              detail: `${e.ballsFaced} balls faced · ${e.matchesPlayed} innings`,
+            }))}/>
+          <RecordCard emoji="🚀" title="Fastest to 500 Career Runs"
+            desc="Fewest balls faced to reach 500 career runs"
+            entries={fastest500.map(e => ({
+              primary: e.name,
+              secondary: `(${e.team})`,
+              secondaryColor: teamColor(e.team, league.teams),
+              detail: `${e.ballsFaced} balls faced · ${e.matchesPlayed} innings`,
+            }))}/>
+        </div>
+      </div>
+
+      {/* Win Streaks */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp className="w-5 h-5 text-primary"/>
+          <div className="font-display text-2xl tracking-wider">Win & Loss Streaks</div>
+        </div>
+        {streaks.length === 0 ? (
+          <Card className="p-10 text-center gradient-card border-border/60 text-muted-foreground text-sm">
+            Play more matches to see streak records.
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <RecordCard emoji="🔥" title="Longest Win Streaks"
+              desc="Teams with the most consecutive wins"
+              entries={streaks.filter(s => s.type === "win").slice(0, 8).map((s, i) => ({
+                primary: s.team,
+                primaryColor: teamColor(s.team, league.teams),
+                detail: `${s.streak} consecutive wins`,
+              }))}/>
+            <RecordCard emoji="💔" title="Longest Losing Streaks"
+              desc="Teams with the most consecutive losses"
+              entries={streaks.filter(s => s.type === "loss").slice(0, 8).map((s, i) => ({
+                primary: s.team,
+                primaryColor: teamColor(s.team, league.teams),
+                detail: `${s.streak} consecutive losses`,
+              }))}/>
+          </div>
+        )}
+      </div>
+
+      {/* Run Bonanza & Captain records */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 className="w-5 h-5 text-primary"/>
+          <div className="font-display text-2xl tracking-wider">Match & Captaincy Records</div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <RecordCard emoji="🏟️" title="Highest-Scoring Matches"
+            desc="Matches with the most combined runs ever"
+            entries={highestRunMatch.map(e => ({
+              primary: `${e.team} vs ${e.vs ?? ""}`,
+              detail: e.detail ?? `${e.value} total runs`,
+              season_number: e.season_number,
+            }))}/>
+          <RecordCard emoji="👑" title="Most Matches as Captain"
+            desc="Players who've led their team the most times"
+            entries={captains.map(c => ({
+              primary: c.name,
+              secondary: `(${c.team})`,
+              secondaryColor: teamColor(c.team, league.teams),
+              detail: `${c.matches} matches · ${c.wins}W · ${c.winPct}% win rate`,
+            }))}/>
+        </div>
       </div>
     </div>
   );

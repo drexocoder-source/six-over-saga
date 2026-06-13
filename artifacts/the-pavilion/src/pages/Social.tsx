@@ -4,6 +4,7 @@ import { getOrCreateLeague, type League } from "@/lib/league";
 import {
   ensureSocialAccounts, ensureMemerAccounts, generateRandomPosts, generateDramaLeaks,
   getFeed, listAccounts, likePost, followAccount, createPost,
+  autoGenerateForRecentMatches,
   pfpFor, type SocialAccount,
 } from "@/lib/social";
 import { Card } from "@/components/ui/card";
@@ -38,6 +39,11 @@ export default function Social() {
       // first time → seed initial posts
       await generateRandomPosts(lg.id, 40);
       await generateDramaLeaks(lg.id, 8);
+    }
+    // Auto-generate match reaction posts for any completed matches missing posts
+    const newMatchPosts = await autoGenerateForRecentMatches(lg.id, 8);
+    if (newMatchPosts > 0) {
+      toast.success(`${newMatchPosts} new match reaction posts generated!`, { duration: 3000 });
     }
     await refresh(lg.id);
     setLoading(false);

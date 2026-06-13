@@ -595,3 +595,85 @@ export async function generateMatchPosts(
   if (posts.length) await supabase.from("social_posts").insert(posts);
   return posts.length;
 }
+
+/**
+ * Auto-generate posts for all completed matches that don't yet have social posts.
+ * Call this on Social page load or after match end.
+ * Returns the total new posts created.
+ */
+export async function autoGenerateForRecentMatches(leagueId: string, maxMatches = 5): Promise<number> {
+  // Matches don't have league_id — need to go via seasons
+  const { data: seasons } = await supabase
+    .from("seasons")
+    .select("id, season_number")
+    .eq("league_id", leagueId)
+    .order("season_number", { ascending: false })
+    .limit(5);
+
+  if (!seasons?.length) return 0;
+  const seasonIds = seasons.map(s => s.id);
+  const snMap = new Map(seasons.map(s => [s.id, s.season_number]));
+
+  const { data: recentMatches } = await supabase
+    .from("matches")
+    .select("id, season_id, team_a, team_b, winner, result_text, state, scorecard, match_number")
+    .in("season_id", seasonIds)
+    .eq("status", "done")
+    .order("match_number", { ascending: false })
+    .limit(maxMatches);
+
+  if (!recentMatches?.length) return 0;
+
+  // Check which matches already have posts
+  const { data: existingPosts } = await supabase
+    .from("social_posts")
+    .select("match_id")
+    .eq("league_id", leagueId)
+    .in("match_id", recentMatches.map(m => m.id));
+
+  const matchesWithPosts = new Set((existingPosts ?? []).map(p => p.match_id).filter(Boolean));
+  const needsPosts = recentMatches.filter(m => !matchesWithPosts.has(m.id));
+
+  let total = 0;
+  for (const m of needsPosts) {
+    const sc = (m.scorecard ?? m.state) as any;
+    const inn1 = sc?.innings1;
+    const inn2 = sc?.innings2;
+
+    let topScorer: { name: string; runs: number; team: string } | null = null;
+    let topBowler: { name: string; wkts: number; team: string } | null = null;
+
+    for (const inn of [inn1, inn2]) {
+      if (inn?.bat) {
+        for (const b of Object.values(inn.bat) as any[]) {
+          if (!topScorer || (b.runs ?? 0) > topScorer.runs) {
+            topScorer = { name: b.name, runs: b.runs ?? 0, team: inn.battingTeam };
+          }
+        }
+      }
+      if (inn?.bowl) {
+        for (const b of Object.values(inn.bowl) as any[]) {
+          if (!topBowler || (b.wickets ?? 0) > topBowler.wkts) {
+            topBowler = { name: b.name, wkts: b.wickets ?? 0, team: inn.bowlingTeam ?? inn.battingTeam };
+          }
+        }
+      }
+    }
+    const potmName = topScorer?.name ?? topBowler?.name ?? undefined;
+
+    const count = await generateMatchPosts(leagueId, {
+      matchId: m.id,
+      seasonNumber: snMap.get(m.season_id) ?? 1,
+      winner: m.winner ?? null,
+      loser: m.winner ? (m.winner === m.team_a ? m.team_b : m.team_a) : null,
+      resultText: m.result_text ?? `${m.winner ?? "No result"}`,
+      potmName,
+      topScorer,
+      topBowler,
+      total1: inn1?.runs ?? 0,
+      total2: inn2?.runs ?? 0,
+    });
+    total += count;
+  }
+  return total;
+}
