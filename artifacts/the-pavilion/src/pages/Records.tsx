@@ -229,11 +229,10 @@ function PodiumRow({ entries }: { entries: RowItem[] }) {
 }
 
 function RecordCard({ title, desc, emoji, entries }: { title: string; desc: string; emoji: string; entries: RowItem[] }) {
-  const top3 = entries.slice(0, 3);
-  const rest = entries.slice(3);
+  const MEDALS = ["🥇", "🥈", "🥉"];
   return (
     <Card className="overflow-hidden gradient-card border-border/60 hover:border-primary/30 transition-colors">
-      <div className="flex items-start gap-2.5 px-4 pt-4 pb-1">
+      <div className="flex items-start gap-2.5 px-4 pt-4 pb-3 border-b border-border/30">
         <span className="text-2xl leading-none">{emoji}</span>
         <div className="flex-1">
           <div className="font-display text-base leading-tight">{title}</div>
@@ -241,29 +240,36 @@ function RecordCard({ title, desc, emoji, entries }: { title: string; desc: stri
         </div>
       </div>
       {entries.length === 0 ? (
-        <div className="text-xs text-muted-foreground italic py-4 text-center">No entries yet.</div>
+        <div className="text-xs text-muted-foreground italic py-6 text-center">No entries yet.</div>
       ) : (
-        <>
-          <PodiumRow entries={top3} />
-          {/* Horizontal separator line (the stage floor) */}
-          <div className="mx-3 border-t border-border/40 mt-0 mb-2" />
-          {/* Positions 4+ as compact list */}
-          {rest.length > 0 && (
-            <div className="space-y-0.5 px-3 pb-3">
-              {rest.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs py-1 px-2 rounded bg-secondary/15">
-                  <span className="w-5 text-center font-mono text-[10px] text-muted-foreground/50 shrink-0">{i + 4}</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="font-semibold truncate" style={r.primaryColor ? { color: r.primaryColor } : undefined}>{r.primary}</span>
-                    {r.secondary && <span className="text-[10px] text-muted-foreground ml-1.5" style={r.secondaryColor ? { color: r.secondaryColor } : undefined}>{r.secondary}</span>}
-                    <div className="text-[10px] text-muted-foreground truncate">{r.detail}</div>
+        <div className="divide-y divide-border/20">
+          {entries.map((r, i) => {
+            const valuePart = r.detail?.split("·")[0]?.trim() ?? "";
+            const subPart = r.detail?.split("·").slice(1).join("·").trim() ?? "";
+            const isTop3 = i < 3;
+            return (
+              <div key={i} className={`flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-secondary/15 ${isTop3 ? "bg-secondary/10" : ""}`}>
+                <span className="w-5 text-center shrink-0 text-sm">
+                  {i < 3 ? MEDALS[i] : <span className="text-[10px] font-mono text-muted-foreground/50">{i + 1}</span>}
+                </span>
+                <img src={teamLogo(r.secondaryColor ? (r.secondary ?? "") : (r.primary ?? ""))} alt="" className="w-5 h-5 object-contain opacity-60 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-1.5 min-w-0">
+                    <span className={`font-semibold text-sm truncate ${isTop3 ? "" : "text-foreground/80"}`}
+                      style={r.primaryColor ? { color: r.primaryColor } : undefined}>{r.primary}</span>
+                    {r.secondary && <span className="text-[10px] text-muted-foreground truncate shrink-0"
+                      style={r.secondaryColor ? { color: r.secondaryColor } : undefined}>{r.secondary}</span>}
                   </div>
-                  {r.season_number != null && <span className="text-[9px] text-muted-foreground shrink-0 bg-secondary/50 px-1 rounded">S{r.season_number}</span>}
+                  {subPart && <div className="text-[10px] text-muted-foreground/60 truncate">{subPart}</div>}
                 </div>
-              ))}
-            </div>
-          )}
-        </>
+                <div className="text-right shrink-0">
+                  <div className={`font-mono font-bold text-sm ${isTop3 ? "text-primary" : "text-foreground/70"}`}>{valuePart}</div>
+                  {r.season_number != null && <div className="text-[9px] text-muted-foreground">S{r.season_number}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       )}
     </Card>
   );
@@ -1032,8 +1038,111 @@ function FanVoteView({ matches, league }: { matches: MatchRow[]; league: League 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LEADERBOARD VIEW — Orange Cap, Purple Cap, SR kings, economy kings
+// LEADERBOARD VIEW — Orange Cap, Purple Cap, Six Machine
 // ─────────────────────────────────────────────────────────────────────────────
+interface LBSectionProps { title: string; subtitle: string; accentColor: string; bgGradient: string; borderColor: string; rows: IndEntry[]; league: League; }
+function LBSection({ title, subtitle, accentColor, bgGradient, borderColor, rows, league }: LBSectionProps) {
+  if (!rows.length) return null;
+  const top = rows[0];
+  const topVal = Number(top.value);
+  const PODIUM = [
+    { idx: 1, medal: "🥈", glowHex: "#94a3b8", podHeight: 64, scale: "scale-95" },
+    { idx: 0, medal: "🥇", glowHex: "#facc15", podHeight: 88, scale: "scale-100" },
+    { idx: 2, medal: "🥉", glowHex: "#b47c3c", podHeight: 48, scale: "scale-90" },
+  ];
+  return (
+    <div className="rounded-2xl overflow-hidden border" style={{ borderColor, background: "hsl(var(--card))" }}>
+      {/* Hero header — current leader */}
+      <div className="relative overflow-hidden px-6 py-5" style={{ background: bgGradient }}>
+        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: "repeating-linear-gradient(45deg, currentColor 0, currentColor 1px, transparent 0, transparent 50%)", backgroundSize: "8px 8px" }} />
+        {top && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-[0.07]">
+            <img src={teamLogo(top.team)} alt="" className="w-28 h-28 object-contain" />
+          </div>
+        )}
+        <div className="relative flex items-center gap-4">
+          <div className="text-4xl leading-none">{title.split(" ")[0]}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] uppercase tracking-[0.3em] text-white/50 mb-0.5">{subtitle}</div>
+            <div className="font-display text-2xl md:text-3xl text-white leading-tight">{title.replace(/^\S+\s/, "")}</div>
+          </div>
+          {top && (
+            <div className="text-right shrink-0">
+              <div className="font-display text-4xl font-black" style={{ color: accentColor }}>{top.value}</div>
+              <div className="text-sm font-semibold text-white/80 truncate max-w-[120px]">{top.name}</div>
+              <div className="text-[10px] text-white/50">{top.team}</div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Podium — top 3 */}
+      <div className="flex items-end gap-3 px-6 pt-5 pb-2 bg-gradient-to-b from-secondary/5 to-transparent">
+        {PODIUM.map(({ idx, medal, glowHex, podHeight }) => {
+          const e = rows[idx];
+          if (!e) return <div key={idx} className="flex-1" />;
+          const tc = teamColor(e.team, league.teams);
+          const val = Number(e.value);
+          const pct = topVal > 0 ? Math.round((val / topVal) * 100) : 100;
+          return (
+            <div key={idx} className="flex-1 flex flex-col items-center min-w-0">
+              <img src={teamLogo(e.team)} alt={e.team} className="w-10 h-10 object-contain mb-2 drop-shadow-lg" />
+              <div className="text-center w-full mb-2 px-1">
+                <div className="text-[11px] font-bold truncate leading-tight" style={{ color: tc }}>{e.name}</div>
+                <div className="text-[9px] text-muted-foreground/70">{e.team}</div>
+                <div className="font-black font-mono text-lg mt-0.5" style={{ color: accentColor }}>{e.value}</div>
+              </div>
+              <div className="w-full rounded-t-xl relative flex items-end justify-center overflow-hidden"
+                style={{ height: podHeight, background: `linear-gradient(to top, ${glowHex}30, ${glowHex}10)`, border: `1px solid ${glowHex}40`, borderBottom: "none" }}>
+                <div className="absolute inset-x-0 top-0 h-px opacity-50" style={{ background: `linear-gradient(90deg, transparent, ${glowHex}, transparent)` }} />
+                <span className="text-xl pb-2">{medal}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Progress bar visual */}
+      {rows.length >= 3 && (
+        <div className="px-6 pb-1">
+          <div className="h-px bg-border/30" />
+        </div>
+      )}
+
+      {/* Ranked list — positions 4+ */}
+      {rows.length > 3 && (
+        <div className="divide-y divide-border/20">
+          {rows.slice(3).map((e, i) => {
+            const tc = teamColor(e.team, league.teams);
+            const val = Number(e.value);
+            const barW = topVal > 0 ? (val / topVal) * 100 : 0;
+            const detail = e.detail?.split("·").slice(1).join("·").trim() ?? "";
+            return (
+              <div key={i} className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/10 transition-colors group">
+                <span className="w-5 text-center text-[11px] font-mono text-muted-foreground/40 shrink-0">{i + 4}</span>
+                <img src={teamLogo(e.team)} alt={e.team} className="w-8 h-8 object-contain opacity-70 group-hover:opacity-100 transition-opacity shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm font-semibold" style={{ color: tc }}>{e.name}</span>
+                    <span className="text-[10px] text-muted-foreground/60">{e.team}</span>
+                  </div>
+                  <div className="mt-1 h-1 rounded-full bg-border/30 overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${barW}%`, background: accentColor, opacity: 0.6 }} />
+                  </div>
+                  {detail && <div className="text-[9px] text-muted-foreground/50 mt-0.5 truncate">{detail}</div>}
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="font-mono font-bold text-sm" style={{ color: accentColor }}>{e.value}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LeaderboardView({ matches, league }: { matches: MatchRow[]; league: League }) {
   const batters = useMemo(() => topBest(matches, "runs", 10), [matches]);
   const bowlers = useMemo(() => topBest(matches, "wickets", 10), [matches]);
@@ -1041,101 +1150,40 @@ function LeaderboardView({ matches, league }: { matches: MatchRow[]; league: Lea
 
   if (matches.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <ListOrdered className="w-10 h-10 text-muted-foreground/30" />
-        <div className="font-display text-lg text-muted-foreground/60">No matches in this scope yet</div>
-        <div className="text-xs text-muted-foreground/40">Play some matches to see the leaderboard.</div>
-      </div>
-    );
-  }
-
-  function LBSection({ title, emoji, color, cap, rows, valueSuffix }: {
-    title: string; emoji: string; color: string; cap: string;
-    rows: IndEntry[]; valueSuffix?: string;
-  }) {
-    const top = rows[0];
-    return (
-      <div className="rounded-2xl border border-border/60 overflow-hidden" style={{ background: "linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%)" }}>
-        {/* Section header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40"
-          style={{ background: `linear-gradient(90deg, ${color}18 0%, transparent 70%)` }}>
-          <span className="text-3xl">{emoji}</span>
-          <div>
-            <div className="font-display text-lg tracking-wide">{title}</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-widest">{cap}</div>
-          </div>
-          {top && (
-            <div className="ml-auto flex items-center gap-3">
-              <img src={teamLogo(top.team)} alt={top.team} className="w-8 h-8 object-contain opacity-70" />
-              <div className="text-right">
-                <div className="font-display text-2xl font-black" style={{ color }}>{top.value}{valueSuffix}</div>
-                <div className="text-xs text-muted-foreground">{top.name}</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Podium top 3 */}
-        <div className="flex items-end gap-2 px-5 py-4">
-          {[rows[1], rows[0], rows[2]].map((e, slot) => {
-            if (!e) return <div key={slot} className="flex-1" />;
-            const rank = slot === 1 ? 1 : slot === 0 ? 2 : 3;
-            const podH = slot === 1 ? 80 : slot === 0 ? 56 : 40;
-            const medal = slot === 1 ? "🥇" : slot === 0 ? "🥈" : "🥉";
-            const glowC = slot === 1 ? "#facc15" : slot === 0 ? "#94a3b8" : "#b47c3c";
-            const tc = teamColor(e.team, league.teams);
-            return (
-              <div key={slot} className="flex flex-col items-center flex-1 min-w-0">
-                <img src={teamLogo(e.team)} alt={e.team} className="w-7 h-7 object-contain mb-1 opacity-80" />
-                <div className="text-center w-full px-0.5 mb-1">
-                  <div className="text-[11px] font-bold truncate" style={{ color: tc }}>{e.name}</div>
-                  <div className="text-[9px] text-muted-foreground truncate">{e.team}</div>
-                  <div className="font-black font-mono text-base" style={{ color }}>{e.value}{valueSuffix}</div>
-                </div>
-                <div className="w-full rounded-t-lg flex items-end justify-center pb-1 relative"
-                  style={{ height: podH, background: `${glowC}18`, border: `1px solid ${glowC}30`, borderBottom: "none" }}>
-                  <span className="text-base">{medal}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Rest of list */}
-        {rows.length > 3 && (
-          <div className="border-t border-border/30">
-            {rows.slice(3).map((e, i) => {
-              const tc = teamColor(e.team, league.teams);
-              return (
-                <div key={i} className="flex items-center gap-3 px-5 py-2 border-b border-border/20 last:border-0 hover:bg-secondary/10 transition-colors">
-                  <span className="w-6 text-center text-xs text-muted-foreground/50 font-mono">{i + 4}</span>
-                  <img src={teamLogo(e.team)} alt={e.team} className="w-6 h-6 object-contain opacity-60" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold" style={{ color: tc }}>{e.name}</span>
-                    <span className="text-[10px] text-muted-foreground ml-2">{e.team}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono font-bold text-sm" style={{ color }}>{e.value}{valueSuffix}</div>
-                    <div className="text-[9px] text-muted-foreground">{e.detail?.split("·").slice(1).join("·").trim()}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+      <div className="flex flex-col items-center gap-3 py-20 text-center">
+        <ListOrdered className="w-12 h-12 text-muted-foreground/20" />
+        <div className="font-display text-2xl text-muted-foreground/50">No matches in this scope yet</div>
+        <div className="text-sm text-muted-foreground/30">Play some matches to see the leaderboard.</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground italic">
-        <Info className="w-3 h-3 shrink-0" />
-        Leaderboard for the selected scope — change scope above to filter by season or match.
-      </div>
-      <LBSection title="Orange Cap" emoji="🧡" color="hsl(30 95% 55%)" cap="Most Runs" rows={batters} />
-      <LBSection title="Purple Cap" emoji="💜" color="hsl(270 70% 65%)" cap="Most Wickets" rows={bowlers} />
-      <LBSection title="Six Machine" emoji="🚀" color="hsl(195 80% 55%)" cap="Most Sixes" rows={sixers} />
+    <div className="space-y-5">
+      <LBSection
+        title="🧡 Orange Cap"
+        subtitle="Most Runs Scored"
+        accentColor="hsl(28 95% 58%)"
+        bgGradient="linear-gradient(135deg, hsl(28 80% 22%) 0%, hsl(28 60% 12%) 100%)"
+        borderColor="hsl(28 60% 30%)"
+        rows={batters} league={league}
+      />
+      <LBSection
+        title="💜 Purple Cap"
+        subtitle="Most Wickets Taken"
+        accentColor="hsl(270 70% 70%)"
+        bgGradient="linear-gradient(135deg, hsl(270 50% 20%) 0%, hsl(270 40% 12%) 100%)"
+        borderColor="hsl(270 40% 30%)"
+        rows={bowlers} league={league}
+      />
+      <LBSection
+        title="🚀 Six Machine"
+        subtitle="Most Sixes Hit"
+        accentColor="hsl(195 80% 60%)"
+        bgGradient="linear-gradient(135deg, hsl(195 60% 20%) 0%, hsl(195 40% 12%) 100%)"
+        borderColor="hsl(195 40% 28%)"
+        rows={sixers} league={league}
+      />
     </div>
   );
 }
