@@ -73,6 +73,11 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    proxy: {
+      "/rest":      { target: "http://localhost:8080", changeOrigin: true },
+      "/auth":      { target: "http://localhost:8080", changeOrigin: true },
+      "/functions": { target: "http://localhost:8080", changeOrigin: true },
+    },
   },
   preview: {
     port,

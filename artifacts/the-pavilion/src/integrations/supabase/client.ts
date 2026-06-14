@@ -1,9 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
-const SUPABASE_PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
-  import.meta.env.VITE_SUPABASE_ANON_KEY) as string;
+// Point at our own Express API which mimics PostgREST / Supabase Auth.
+// Falls back to window.location.origin so it works in dev and production.
+const SUPABASE_URL =
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ||
+  (typeof window !== "undefined" ? window.location.origin : "http://localhost:8080");
+
+const SUPABASE_PUBLISHABLE_KEY = (
+  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+    import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined
+) || "anon";
 
 function getDeviceId(): string {
   const KEY = "ipl_t2_device_id";

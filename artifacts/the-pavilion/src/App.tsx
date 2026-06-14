@@ -30,6 +30,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import AwardsVoting from "./pages/AwardsVoting";
+import ImageStudio from "./pages/ImageStudio";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
               <Route path="/awards" element={<AwardsVoting />} />
               <Route path="/chairman" element={<Chairman />} />
               <Route path="/multiverse" element={<Multiverse />} />
+              <Route path="/studio" element={<ImageStudio />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

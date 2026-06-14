@@ -1,0 +1,246 @@
+🚨 NEW V3.0 EXCLUSIVE FEATURES
+🧠 AI Press Conference
+
+After every match:
+
+🎤 Reporter: Why did you drop Rohit today?
+
+Options:
+
+Defend Decision
+Blame Form
+Rotate Squad
+
+Effects:
+
+Team morale
+Fan reactions
+Media rating
+🔥 Rivalry System
+
+Dynamic rivalries develop.
+
+Examples:
+
+MI vs CSK
+RCB vs CSK
+Kohli vs Bumrah
+
+Features:
+
+Rivalry Meter
+Head-to-Head Records
+Special Commentary
+👑 Dynasty System
+
+Win multiple titles.
+
+Achievements:
+
+🥉 Champion
+🥈 Dynasty
+🥇 IPL Empire
+
+Unlock banners and trophies.
+
+🌟 Player Personalities
+
+Each player gets personality traits.
+
+Examples:
+
+Loyal
+Mercenary
+Aggressive
+Calm
+Big Match Player
+Injury Prone
+
+Affects transfers and performances.
+
+💎 Hidden Wonderkids
+
+Random youth players generated every season.
+
+Example:
+
+"17-year-old Aryan Sharma discovered."
+
+Potential:
+⭐ 92 Overall
+
+Buy before others find him.
+
+🎯 Captaincy Impact
+
+Captains affect:
+
+Team morale
+Toss success
+Death-over decisions
+Chasing performance
+🎲 Dynamic Match Events
+
+Random events during matches:
+
+⚡ Floodlight Failure
+
+🌧️ Sudden Rain
+
+🤕 Injury During Match
+
+🔥 Crowd Invasion
+
+🏟️ Pitch Damage
+
+🎖️ Achievement System
+
+Unlockables:
+
+Invincibles (undefeated season)
+Chase Master
+Auction Genius
+Six Machine
+Wicket Hunter
+🏛️ Franchise Legacy Score
+
+Measures greatness:
+
+Titles
+Win %
+Records
+Fanbase
+Hall of Fame Players
+🌍 Global T20 Circuit
+
+After IPL:
+
+Champions League T20
+Asia Cup Clubs
+World Franchise Cup
+
+IPL winners qualify automatically.
+
+🧬 Player DNA System
+
+Every generated player gets:
+
+Preferred shots
+Favorite grounds
+Weaknesses
+Pressure rating
+
+No two players feel identical.
+
+📉 Form Graphs
+
+Show:
+
+Last 5 matches
+Last 10 matches
+Season trend
+
+Green = rising
+Red = falling
+
+💬 Dressing Room System
+
+Events:
+
+😡 Star player unhappy
+
+🤝 Squad bonding
+
+⚔️ Conflict between players
+
+Effects on performance.
+
+🏟️ Home Fortress System
+
+Teams become stronger at home.
+
+Example:
+
+CSK at Chennai:
++5% spin effectiveness
+
+📣 Fanbase System
+
+Fanbase grows or shrinks.
+
+Levels:
+
+Local Club
+Popular Franchise
+National Giant
+Global Brand
+🎨 Jersey Evolution
+
+Every season:
+
+New jersey reveal
+Alternate kits
+Retro kits
+🏆 Trophy Cabinet
+
+Separate page showing:
+
+IPL Titles
+Awards
+Records
+Dynasty Banners
+📺 Match Hype Meter
+
+Before every match:
+
+🔥 El Clasico
+⚡ Revenge Match
+👑 Top-of-Table Clash
+💀 Survival Match
+
+Generates extra excitement.
+
+🎲 Scenario Mode
+
+Play famous IPL moments:
+
+RCB needing 20 off 6
+CSK chasing 171 in Final
+MI defending 12 off last over
+🏟️ Stadium Upgrade Mode
+
+Upgrade:
+
+Capacity
+Facilities
+Pitch Quality
+Fan Experience
+
+Results in higher revenue.
+
+🧾 Contracts System
+
+Contract lengths:
+
+1 Year
+3 Years
+5 Years
+
+Players can:
+
+Renew
+Reject
+Demand higher salary
+🏅 Hall of Fame Ceremony
+
+Every season:
+
+Top legends are inducted into the Hall of Fame.
+
+🤖 Smart Commentary Engine 2.0
+
+Context-aware commentary:
+
+"Virat has now scored 4 consecutive fifties."
+
+"Jasprit is one wicket away from a franchise record."
