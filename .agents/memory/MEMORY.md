@@ -2,3 +2,4 @@
 - [Supabase client URL](supabase-client.md) — VITE_SUPABASE_URL must not be empty string; fall back to window.location.origin so proxy works in dev.
 - [OpenAI lazy init](openai-lazy-init.md) — both image/client.ts and client.ts must use lazy/proxy init so server starts without AI keys; throw only on first use.
 - [DB schema push needed](db-schema.md) — fresh environment has no tables; run `pnpm --filter @workspace/db run push` before first use.
+- [Fast Refresh split rule](fast-refresh-split.md) — Vite Fast Refresh requires files export ONLY components OR ONLY utilities; mixed exports cause invalidation warnings; split utilities into a separate lib file.

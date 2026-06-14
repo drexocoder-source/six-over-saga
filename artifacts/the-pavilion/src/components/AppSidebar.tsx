@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { BookOpen, Gavel, Calendar, Play, BarChart3, Award, Settings2, Home, Users, Swords, Layers, User, Crown, MessageSquare, History, Repeat, ScrollText, Trophy, GitBranch, Star, Vote, Sparkles } from "lucide-react";
+import { BookOpen, Gavel, Calendar, Play, BarChart3, Award, Settings2, Home, Users, Swords, Layers, User, Crown, MessageSquare, History, Repeat, ScrollText, Trophy, GitBranch, Star, Vote, Sparkles, Flame } from "lucide-react";
 import {
   Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
@@ -22,9 +22,10 @@ const groups: { label: string; items: { title: string; url: string; icon: any }[
   {
     label: "Teams",
     items: [
-      { title: "Squads",      url: "/squads", icon: Users },
-      { title: "Squad Depth", url: "/depth",  icon: Layers },
-      { title: "Head-to-Head",url: "/h2h",    icon: Swords },
+      { title: "Squads",      url: "/squads",    icon: Users },
+      { title: "Squad Depth", url: "/depth",     icon: Layers },
+      { title: "Head-to-Head",url: "/h2h",       icon: Swords },
+      { title: "Rivalries",   url: "/rivalries", icon: Flame },
     ],
   },
   {

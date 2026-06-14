@@ -29,6 +29,8 @@ export interface SimContext {
   battingCaptaincy?: number;
   /** Bowling captain leadership (0-100) — small impact on dot/wicket chance. */
   bowlingCaptaincy?: number;
+  /** Home Fortress — batting team is playing at their home ground (+boundary, -wicket). */
+  homeAdvantage?: boolean;
 }
 
 export interface SimOutcomeProb {
@@ -169,6 +171,15 @@ export function buildProbs(ctx: SimContext): SimOutcomeProb {
   if (typeof ctx.battingCaptaincy === "number") {
     const k = (ctx.battingCaptaincy - 70) * 0.04;
     p.wicket -= k * 0.4; p.one += k * 0.3;
+  }
+
+  // 🏟️ Home Fortress — batting at home stadium gives slight edge
+  if (ctx.homeAdvantage) {
+    p.four += 1.2;
+    p.six += 0.8;
+    p.dot -= 1.0;
+    p.wicket -= 1.2;
+    p.one += 0.4;
   }
 
   // Clamp non-negative

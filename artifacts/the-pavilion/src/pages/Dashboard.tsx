@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { JerseyCard } from "@/components/JerseyCard";
+import { getStoredWonderkids, type Wonderkid } from "@/lib/wonderkids";
 
 export default function Dashboard() {
   const nav = useNavigate();
@@ -21,6 +22,7 @@ export default function Dashboard() {
   const [startingSeason, setStartingseason] = useState(false);
   const [activeSeason, setActiveSeason] = useState<{ id: string; season_number: number; year: number; auction_status: string; status: string } | null>(null);
   const [recentMatches, setRecentMatches] = useState<any[]>([]);
+  const [wonderkids, setWonderkids] = useState<Wonderkid[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -44,6 +46,7 @@ export default function Dashboard() {
         setActiveSeason(ongoing as never);
       }
       setStats({ players: pc ?? 0, seasons: seasons?.length ?? 0, matches: mc });
+      setWonderkids(getStoredWonderkids());
       setLoading(false);
     })();
   }, []);
@@ -152,8 +155,49 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Right column: Recent results + jerseys */}
+        {/* Right column: Wonderkids + Recent results + jerseys */}
         <div className="space-y-4">
+          {/* 🌟 Hidden Wonderkids discovered this season */}
+          {wonderkids.length > 0 && (
+            <Card className="p-4 gradient-card border-amber-500/30 relative overflow-hidden"
+              style={{ background: "linear-gradient(135deg, rgba(251,191,36,0.06), rgba(245,158,11,0.04))" }}>
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-amber-500 to-transparent" />
+              <div className="text-[10px] tracking-[0.3em] uppercase text-amber-400/80 mb-3 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                Wonderkids Discovered — Season {wonderkids[0]?.discoveredSeason ?? "?"}
+              </div>
+              <div className="space-y-3">
+                {wonderkids.map(wk => (
+                  <div key={wk.id} className="flex items-start gap-3 p-2.5 rounded-xl" style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.15)" }}>
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 text-base">
+                      ⭐
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-display text-sm tracking-wider text-amber-300">{wk.name}</span>
+                        <span className="text-[9px] text-muted-foreground">{wk.age}yo · {wk.nationality}</span>
+                      </div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{wk.role} · {wk.trait}</div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[9px] text-muted-foreground">Rating <span className="text-amber-400 font-bold">{wk.currentRating}</span></span>
+                        <span className="text-white/15">·</span>
+                        <span className="text-[9px] text-muted-foreground">Potential <span className="text-amber-300 font-black">{wk.potential}</span></span>
+                        {/* Potential bar */}
+                        <div className="flex-1 h-1 rounded-full overflow-hidden bg-white/05">
+                          <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-300"
+                            style={{ width: `${wk.potential}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button className="mt-2 text-[10px] text-amber-400/60 hover:text-amber-400 transition-colors" onClick={() => nav("/auction")}>
+                Find them in the auction →
+              </button>
+            </Card>
+          )}
+
           {recentMatches.length > 0 && (
             <Card className="p-4 gradient-card border-border/60">
               <div className="text-[10px] tracking-[0.3em] uppercase text-muted-foreground mb-3 flex items-center gap-1.5">

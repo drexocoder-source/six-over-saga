@@ -372,26 +372,85 @@ export default function PlayerProfile() {
                     <Card className="p-12 text-center gradient-card border-border/60 text-muted-foreground text-sm">No recent form data.</Card>
                   ) : (
                     <div className="space-y-3">
-                      <Card className="p-4 gradient-card border-border/60">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Last {recentForm.length} Appearances</div>
-                        <div className="flex items-center gap-2 flex-wrap mb-4">
-                          {recentForm.map((f, i) => {
-                            const { grade } = formScore(f);
-                            const colors = { great: "bg-primary shadow-[0_0_6px_hsl(var(--primary))]", good: "bg-green-500", ok: "bg-amber-400", poor: "bg-destructive" };
-                            return (
-                              <div key={i} title={`S${f.season} M${f.match_number}: ${formScore(f).label}`}
-                                className={`w-3.5 h-9 rounded-full transition-all cursor-default ${colors[grade]}`}/>
-                            );
-                          })}
-                          <div className="text-xs text-muted-foreground ml-2">← most recent</div>
-                        </div>
-                        <div className="flex items-center gap-4 text-[10px] text-muted-foreground flex-wrap">
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary inline-block"/>Outstanding</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"/>Good</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"/>Average</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-destructive inline-block"/>Poor</span>
+                      {/* Sparkline chart */}
+                      <Card className="p-5 gradient-card border-border/60 overflow-hidden">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Form Trend — Last {recentForm.length} Appearances</div>
+                        <div className="text-[9px] text-muted-foreground/60 mb-4">← oldest · most recent →</div>
+                        {(() => {
+                          const scores = [...recentForm].reverse().map(f => {
+                            const s = formScore(f);
+                            return s.grade === "great" ? 100 : s.grade === "good" ? 70 : s.grade === "ok" ? 40 : 15;
+                          });
+                          const W = 400, H = 80, pad = 16;
+                          const n = scores.length;
+                          const xStep = n > 1 ? (W - pad * 2) / (n - 1) : (W - pad * 2);
+                          const points = scores.map((v, i) => ({
+                            x: pad + i * xStep,
+                            y: pad + (1 - v / 100) * (H - pad * 2),
+                          }));
+                          const lineD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+                          const areaD = `${lineD} L ${points[points.length - 1].x} ${H} L ${points[0].x} ${H} Z`;
+                          const colorMap: Record<string, string> = { great: "#a78bfa", good: "#34d399", ok: "#fbbf24", poor: "#f87171" };
+                          const gradeMap = (v: number) => v >= 80 ? "great" : v >= 60 ? "good" : v >= 30 ? "ok" : "poor";
+                          return (
+                            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 90 }}>
+                              <defs>
+                                <linearGradient id="formGrad" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.35" />
+                                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
+                                </linearGradient>
+                              </defs>
+                              {/* Grid lines */}
+                              {[100, 70, 40, 15].map(v => {
+                                const y = pad + (1 - v / 100) * (H - pad * 2);
+                                return <line key={v} x1={pad} y1={y} x2={W - pad} y2={y} stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />;
+                              })}
+                              {/* Area fill */}
+                              <path d={areaD} fill="url(#formGrad)" />
+                              {/* Line */}
+                              <path d={lineD} fill="none" stroke="hsl(var(--primary))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                              {/* Points */}
+                              {points.map((pt, i) => {
+                                const v = scores[i];
+                                const col = colorMap[gradeMap(v)];
+                                return (
+                                  <g key={i}>
+                                    <circle cx={pt.x} cy={pt.y} r={5} fill={col} stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          );
+                        })()}
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="flex items-center gap-3 text-[9px] text-muted-foreground flex-wrap">
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#a78bfa] inline-block"/>Outstanding</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#34d399] inline-block"/>Good</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#fbbf24] inline-block"/>Average</span>
+                            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#f87171] inline-block"/>Poor</span>
+                          </div>
                         </div>
                       </Card>
+
+                      {/* Performance bars */}
+                      <Card className="p-4 gradient-card border-border/60">
+                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Match-by-Match Performance</div>
+                        <div className="flex items-end gap-2 flex-wrap mb-4">
+                          {recentForm.map((f, i) => {
+                            const { grade } = formScore(f);
+                            const heightMap = { great: "h-10", good: "h-7", ok: "h-4", poor: "h-2" };
+                            const colors = { great: "bg-[#a78bfa] shadow-[0_0_8px_rgba(167,139,250,0.5)]", good: "bg-[#34d399]", ok: "bg-[#fbbf24]", poor: "bg-[#f87171]" };
+                            return (
+                              <div key={i} className="flex flex-col items-center gap-1" title={`S${f.season} M${f.match_number}: ${formScore(f).label}`}>
+                                <div className={`w-4 rounded-t-sm transition-all cursor-default ${heightMap[grade]} ${colors[grade]}`}/>
+                                <div className="text-[8px] text-muted-foreground/50 font-mono">{i + 1}</div>
+                              </div>
+                            );
+                          })}
+                          <div className="text-xs text-muted-foreground ml-2 self-end pb-4">← most recent</div>
+                        </div>
+                      </Card>
+
                       <div className="space-y-2">
                         {recentForm.map((f, i) => {
                           const { grade, label } = formScore(f);

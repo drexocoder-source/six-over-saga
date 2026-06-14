@@ -31,6 +31,7 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import AwardsVoting from "./pages/AwardsVoting";
 import ImageStudio from "./pages/ImageStudio";
+import Rivalries from "./pages/Rivalries";
 
 const queryClient = new QueryClient();
 
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/squads" element={<Squads />} />
               <Route path="/depth" element={<SquadDepth />} />
               <Route path="/h2h" element={<HeadToHead />} />
+              <Route path="/rivalries" element={<Rivalries />} />
               <Route path="/players" element={<PlayerProfile />} />
               <Route path="/stats" element={<Stats />} />
               <Route path="/records" element={<Records />} />

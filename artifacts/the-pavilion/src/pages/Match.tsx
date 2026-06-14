@@ -35,6 +35,10 @@ import { buildProbs, sampleOutcome, computePressure, aiCommentary, type SimConte
 import { deriveAttrs, type PlayerAttrs } from "@/lib/skills";
 import { downloadJSON, downloadPDF, type ExportMeta } from "@/lib/exportMatch";
 import { formRating, type FormEntry } from "@/lib/form";
+import { teamLogo } from "@/lib/teamLogos";
+import { MatchEventBanner, type MatchEvent } from "@/components/match/MatchEventBanner";
+import { pickMatchEvent } from "@/lib/matchEvents";
+import { PressConference } from "@/components/match/PressConference";
 
 type Phase = "loading" | "toss" | "xi" | "openers" | "live" | "innings_break" | "needs_bowler" | "needs_batter" | "done";
 
@@ -195,6 +199,8 @@ export default function Match() {
   const [aiSpeedMs, setAiSpeedMs] = useState<number>(quickSim ? 40 : 1500); // user-adjustable ball cadence
   const [matchProfile, setMatchProfile] = useState<ScoreProfile | null>(null);
   const [potmName, setPotmName] = useState<string>("");
+  const [matchEvent, setMatchEvent] = useState<MatchEvent | null>(null);
+  const [showPressConf, setShowPressConf] = useState(false);
 
   const tcolor = (id: string) => teamColor(id, league?.teams);
 
@@ -580,6 +586,7 @@ export default function Match() {
       scoreProfile: (matchProfile ?? (league?.settings.scoreProfile as any) ?? "200+"),
       battingCaptaincy: battingCap?.rating,
       bowlingCaptaincy: bowlingCap?.rating,
+      homeAdvantage: inn.battingTeam === match?.team_a,
     };
     const probs = buildProbs(ctx);
     const { event, label } = sampleOutcome(probs);
@@ -596,6 +603,11 @@ export default function Match() {
     if (Math.random() < 0.06 && !autoMatch) {
       const evText = pickLiveEvent();
       setCommentary(c => [`🎪 ${evText}`, ...c].slice(0, 300));
+    }
+
+    // ~4% chance for a dramatic match event banner (only during manual/semi-auto play)
+    if (Math.random() < 0.04 && !autoMatch && !matchEvent) {
+      setMatchEvent(pickMatchEvent());
     }
 
     // For big moments, upgrade the template line with real AI commentary (async, silent fallback)
@@ -855,13 +867,21 @@ export default function Match() {
 
   const headBlock = (
     <div className="flex items-center justify-between flex-wrap gap-3">
-      <div>
-        <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {seasonNum > 0 ? seasonNum : "—"} • MATCH {match.match_number ?? "—"}{match.stage === "final" && " • FINAL"}</div>
-        <div className="font-display text-3xl md:text-4xl tracking-wider">
-          <span style={{ color: tcolor(match.team_a) }}>{match.team_a}</span>
-          <span className="text-muted-foreground mx-2">vs</span>
-          <span style={{ color: tcolor(match.team_b) }}>{match.team_b}</span>
+      <div className="flex items-center gap-3">
+        <img src={teamLogo(match.team_a)} alt={match.team_a}
+          className="w-10 h-10 object-contain shrink-0"
+          style={{ filter: `drop-shadow(0 0 6px ${tcolor(match.team_a)}55)` }} />
+        <div>
+          <div className="text-xs tracking-[0.3em] text-primary/80">SEASON {seasonNum > 0 ? seasonNum : "—"} • MATCH {match.match_number ?? "—"}{match.stage === "final" && " • FINAL"}</div>
+          <div className="font-display text-3xl md:text-4xl tracking-wider">
+            <span style={{ color: tcolor(match.team_a) }}>{match.team_a}</span>
+            <span className="text-muted-foreground mx-2">vs</span>
+            <span style={{ color: tcolor(match.team_b) }}>{match.team_b}</span>
+          </div>
         </div>
+        <img src={teamLogo(match.team_b)} alt={match.team_b}
+          className="w-10 h-10 object-contain shrink-0 opacity-75"
+          style={{ filter: `drop-shadow(0 0 4px ${tcolor(match.team_b)}44)` }} />
       </div>
       <div className="flex items-center gap-2">
         <Button
@@ -1006,13 +1026,59 @@ export default function Match() {
 
         {/* Match done: rich highlights reel */}
         {phase === "done" && engine && league && (
-          <MatchHighlights
-            engine={engine}
-            match={match}
-            potmName={potmName}
-            league={league}
-            onContinue={() => nav("/schedule")}
-          />
+          <>
+            <MatchHighlights
+              engine={engine}
+              match={match}
+              potmName={potmName}
+              league={league}
+              onContinue={() => nav("/schedule")}
+            />
+            {/* 🎤 Press Conference CTA */}
+            {potmName && (
+              <div className="flex justify-center">
+                <button
+                  onClick={() => setShowPressConf(true)}
+                  className="group flex items-center gap-3 px-6 py-3 rounded-2xl transition-all duration-300 hover:scale-105"
+                  style={{
+                    background: "linear-gradient(135deg, rgba(168,85,247,0.15), rgba(99,102,241,0.10))",
+                    border: "1px solid rgba(168,85,247,0.35)",
+                    boxShadow: "0 0 24px rgba(168,85,247,0.12)",
+                  }}
+                >
+                  <div className="w-8 h-8 rounded-xl bg-purple-500/20 flex items-center justify-center">
+                    <span className="text-base">🎤</span>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-[10px] tracking-[0.3em] uppercase text-purple-400/70">Post-Match</div>
+                    <div className="font-display text-sm tracking-wider text-purple-300 group-hover:text-purple-200 transition-colors">
+                      Press Conference with {potmName}
+                    </div>
+                  </div>
+                  <span className="text-purple-400/40 group-hover:text-purple-400/70 text-lg transition-colors ml-1">→</span>
+                </button>
+              </div>
+            )}
+            {/* Press Conference Modal */}
+            {showPressConf && potmName && engine && match && (() => {
+              const allBat = [...Object.values(engine.innings1.bat), ...Object.values(engine.innings2?.bat ?? {})];
+              const topBat = (allBat as any[]).reduce((a: any, b: any) => (b.runs > (a?.runs ?? -1) ? b : a), null);
+              const allBowl = [...Object.values(engine.innings1.bowl), ...Object.values(engine.innings2?.bowl ?? {})];
+              const topBowl = (allBowl as any[]).reduce((a: any, b: any) => (b.wickets > (a?.wickets ?? -1) ? b : a), null);
+              return (
+                <PressConference
+                  playerOfMatch={potmName}
+                  winnerTeam={match.winner ?? match.team_a}
+                  loserTeam={match.winner === match.team_a ? match.team_b : match.team_a}
+                  resultText={match.result_text ?? ""}
+                  topBat={topBat ? `${topBat.name} (${topBat.runs} runs)` : "—"}
+                  topBowl={topBowl ? `${topBowl.name} (${topBowl.wickets} wkts)` : "—"}
+                  margin={match.result_text ?? ""}
+                  onClose={() => setShowPressConf(false)}
+                />
+              );
+            })()}
+          </>
         )}
 
         {/* Needs batter overlay */}
@@ -1051,6 +1117,7 @@ export default function Match() {
           </Card>
         )}
 
+        <MatchEventBanner event={matchEvent} onDismiss={() => setMatchEvent(null)} />
         <LiveScorecard state={engine} teamColorFn={tcolor} />
         <InMatchDetails state={engine} teamColorFn={tcolor} />
         <WinProbBar state={engine} teamColorFn={tcolor} />

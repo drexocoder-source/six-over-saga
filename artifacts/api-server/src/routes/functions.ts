@@ -103,6 +103,59 @@ router.post("/v1/generate-image", async (req: Request, res: Response): Promise<v
   }
 });
 
+// ── AI Press Conference ───────────────────────────────────────────────────────
+// POST /functions/v1/press-conference
+// Body: { playerOfMatch, winnerTeam, loserTeam, resultText, topBat, topBowl, margin }
+// Returns: { transcript: [{journalist, tone, question, answer}] }
+
+router.post("/v1/press-conference", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { playerOfMatch, winnerTeam, loserTeam, resultText, topBat, topBowl, margin } = req.body as {
+      playerOfMatch: string; winnerTeam: string; loserTeam: string; resultText: string;
+      topBat: string; topBowl: string; margin: string;
+    };
+
+    const prompt = `You are generating a post-match IPL T20 cricket press conference transcript.
+
+Match result: ${winnerTeam} beat ${loserTeam}. Result: ${resultText}. Margin: ${margin}.
+Player of the Match: ${playerOfMatch}.
+Top scorer: ${topBat}. Top wicket-taker: ${topBowl}.
+
+Generate exactly 4 press conference Q&A exchanges between journalists and the Player of the Match (${playerOfMatch}).
+Vary the journalist tones: one should be ENTHUSIASTIC, one PROBING, one ANALYTICAL, one CHEEKY.
+Journalist names should sound like real Indian TV cricket journalists (e.g. "Harsha Bhogle", "Mayanti Langer", "Aakash Chopra", "Ravi Shastri" — but make up slightly different names).
+
+Return ONLY a JSON object like this:
+{
+  "transcript": [
+    { "journalist": "Name", "tone": "ENTHUSIASTIC", "question": "...", "answer": "..." },
+    { "journalist": "Name", "tone": "PROBING", "question": "...", "answer": "..." },
+    { "journalist": "Name", "tone": "ANALYTICAL", "question": "...", "answer": "..." },
+    { "journalist": "Name", "tone": "CHEEKY", "question": "...", "answer": "..." }
+  ]
+}
+
+Make the answers sound like a real cricketer — humble, enthusiastic, occasionally deflecting with team-first language. Max 40 words per answer. Questions max 25 words.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-5-mini",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+    });
+
+    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(raw);
+    res.json(parsed);
+  } catch (err: any) {
+    if (err?.status === 429) {
+      res.status(429).json({ error: "Rate limited" });
+    } else {
+      req.log?.error({ err }, "press-conference error");
+      res.status(500).json({ error: "Press conference generation failed" });
+    }
+  }
+});
+
 // ── Catch-all ─────────────────────────────────────────────────────────────────
 router.post("/v1/:name", (_req: Request, res: Response): void => {
   res.status(404).json({ error: `Function '${_req.params.name}' not found` });
