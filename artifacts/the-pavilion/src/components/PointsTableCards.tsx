@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import { teamColor } from "@/lib/teams";
 import { teamLogo } from "@/lib/teamLogos";
 import type { PointsRow } from "@/lib/standings";
 import type { League } from "@/lib/league";
-import { Crown, ChevronDown, ChevronUp, TrendingUp, TrendingDown } from "lucide-react";
+import { Crown, TrendingUp, TrendingDown, ChevronDown, ChevronUp } from "lucide-react";
 
 interface QualInfo { status?: "Q" | "E" | "?" | ""; qualPct?: number; scenario?: string }
 
@@ -15,268 +14,230 @@ interface Props {
   playoffSpots?: number;
 }
 
-const RANK_MEDALS = ["🥇", "🥈", "🥉"];
-
-const FORM_COLORS: Record<string, string> = {
-  W: "bg-emerald-500 text-black",
-  L: "bg-rose-500 text-white",
-  T: "bg-yellow-500 text-black",
+const FORM_CONFIG: Record<string, { bg: string; text: string; glow: string }> = {
+  W: { bg: "rgba(52,211,153,0.18)", text: "#34d399", glow: "0 0 8px rgba(52,211,153,0.4)" },
+  L: { bg: "rgba(248,113,113,0.18)", text: "#f87171", glow: "0 0 8px rgba(248,113,113,0.3)" },
+  T: { bg: "rgba(251,191,36,0.18)", text: "#fbbf24", glow: "0 0 8px rgba(251,191,36,0.3)" },
 };
 
-function hexFromHsl(hsl: string): string {
-  // Just return the raw hsl — we'll use it as CSS color directly
-  return hsl;
-}
+const RANK_STYLE: Record<number, { icon?: JSX.Element; bg: string; text: string }> = {
+  1: { bg: "rgba(255,215,0,0.12)", text: "#ffd700" },
+  2: { bg: "rgba(192,192,192,0.12)", text: "#c0c0c0" },
+  3: { bg: "rgba(205,127,50,0.12)", text: "#cd7f32" },
+};
 
 export function PointsTableCards({ table, league, qual, playoffSpots = 4 }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
-  const toggle = (id: string) => setExpanded(v => v === id ? null : id);
 
   return (
-    <div className="space-y-3">
-      {/* View toggle */}
-      <div className="flex items-center gap-2">
-        <button onClick={() => setViewMode("cards")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${viewMode === "cards" ? "bg-primary/15 border-primary/50 text-primary" : "border-border/40 text-muted-foreground hover:border-border"}`}>
-          ⬛ Cards
-        </button>
-        <button onClick={() => setViewMode("table")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${viewMode === "table" ? "bg-primary/15 border-primary/50 text-primary" : "border-border/40 text-muted-foreground hover:border-border"}`}>
-          📋 Table
-        </button>
-        <span className="text-[10px] text-muted-foreground ml-2">← swipe</span>
+    <div className="space-y-1.5">
+      {/* Playoff cut-line header */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)]" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400/70">Playoff zone</span>
+        </div>
+        <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, rgba(52,211,153,0.2), transparent)" }} />
       </div>
 
-      {viewMode === "cards" ? (
-        /* ── CARD VIEW ── */
-        <div className="flex gap-3 overflow-x-auto pb-3 scroll-smooth"
-          style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
-          {table.map((row, idx) => {
-            const q = qual[row.team_id] ?? {};
-            const rank = idx + 1;
-            const color = teamColor(row.team_id, league.teams);
-            const logo = teamLogo(row.team_id);
-            const isExpanded = expanded === row.team_id;
-            const inPlayoffs = rank <= playoffSpots;
-            const qualified = q.status === "Q";
-            const eliminated = q.status === "E";
-            const teamObj = league.teams.find(t => t.id === row.team_id);
-            const nrrPositive = row.nrr > 0;
+      {/* Table rows */}
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.015)" }}>
 
-            return (
-              <div key={row.team_id}
-                className={`relative rounded-2xl border cursor-pointer select-none overflow-hidden transition-all duration-200
-                  ${qualified ? "border-emerald-500/60" : eliminated ? "border-rose-500/30 opacity-75" : inPlayoffs ? "border-primary/40" : "border-white/10"}
-                  hover:scale-[1.025] hover:shadow-xl active:scale-[0.98]`}
+        {/* Column headers */}
+        <div className="grid items-center px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.2em] text-white/25 border-b border-white/5"
+          style={{ gridTemplateColumns: "2.5rem 1fr 3rem 2.5rem 2.5rem 4.5rem 5rem 5.5rem 5.5rem" }}>
+          <div className="text-center">#</div>
+          <div>Team</div>
+          <div className="text-center">P</div>
+          <div className="text-center text-emerald-400/50">W</div>
+          <div className="text-center text-rose-400/50">L</div>
+          <div className="text-center text-amber-400/60">PTS</div>
+          <div className="text-center">NRR</div>
+          <div className="text-center">Form</div>
+          <div className="text-center">Chance</div>
+        </div>
+
+        {table.map((row, idx) => {
+          const rank = idx + 1;
+          const q = qual[row.team_id] ?? {};
+          const color = teamColor(row.team_id, league.teams);
+          const logo = teamLogo(row.team_id);
+          const teamObj = league.teams.find(t => t.id === row.team_id);
+          const inPlayoffs = rank <= playoffSpots;
+          const qualified = q.status === "Q";
+          const eliminated = q.status === "E";
+          const nrrPos = row.nrr > 0;
+          const isExpanded = expanded === row.team_id;
+          const rankStyle = RANK_STYLE[rank];
+          const isPlayoffBoundary = rank === playoffSpots;
+
+          return (
+            <div key={row.team_id}>
+              <div
+                className="group relative cursor-pointer transition-all duration-200"
                 style={{
-                  scrollSnapAlign: "start", flexShrink: 0, minWidth: 230,
-                  background: `linear-gradient(145deg, color-mix(in srgb, ${color} 18%, #0a0a0a) 0%, #0e0e0e 65%)`,
-                  boxShadow: rank <= 3
-                    ? `0 0 28px -8px ${color}66, inset 0 1px 0 ${color}44`
-                    : `inset 0 1px 0 rgba(255,255,255,0.05)`,
+                  opacity: eliminated ? 0.55 : 1,
+                  background: isExpanded
+                    ? `linear-gradient(90deg, ${color}0d, transparent 60%)`
+                    : "transparent",
                 }}
-                onClick={() => toggle(row.team_id)}
+                onClick={() => setExpanded(v => v === row.team_id ? null : row.team_id)}
               >
-                {/* Team logo — giant watermark background */}
-                <img src={logo} alt=""
-                  className="absolute pointer-events-none select-none"
+                {/* Left accent bar */}
+                <div className="absolute left-0 top-0 bottom-0 w-0.5 rounded-r transition-all duration-300"
                   style={{
-                    right: -16, bottom: -12, width: 130, height: 130,
-                    opacity: eliminated ? 0.04 : 0.12,
-                    filter: "saturate(0.3) brightness(1.4)",
-                    transform: "rotate(-5deg)",
-                  }}
-                />
+                    background: qualified ? "#34d399" : eliminated ? "#f87171" : inPlayoffs ? color : "transparent",
+                    opacity: isExpanded ? 1 : 0.5,
+                  }} />
 
-                {/* Color stripe at top */}
-                <div className="h-1 w-full" style={{ background: `linear-gradient(90deg, ${color}, transparent)` }} />
+                {/* Hover glow */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none rounded-sm"
+                  style={{ background: `linear-gradient(90deg, ${color}08, transparent 50%)` }} />
 
-                {/* Qual badge */}
-                {(qualified || eliminated) && (
-                  <div className={`absolute top-2.5 right-2.5 text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full backdrop-blur-sm
-                    ${qualified ? "bg-emerald-500/25 text-emerald-300 border border-emerald-500/40" : "bg-rose-500/20 text-rose-400 border border-rose-500/30"}`}>
-                    {qualified ? "✓ Q" : "✗ Out"}
+                <div className="relative grid items-center px-4 py-3.5"
+                  style={{ gridTemplateColumns: "2.5rem 1fr 3rem 2.5rem 2.5rem 4.5rem 5rem 5.5rem 5.5rem" }}>
+
+                  {/* Rank */}
+                  <div className="flex items-center justify-center">
+                    {rank === 1 ? (
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: rankStyle.bg }}>
+                        <Crown className="w-3.5 h-3.5" style={{ color: rankStyle.text }} />
+                      </div>
+                    ) : rankStyle ? (
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm" style={{ background: rankStyle.bg, color: rankStyle.text }}>
+                        {rank}
+                      </div>
+                    ) : (
+                      <span className="text-sm font-mono text-white/30 w-7 text-center">{rank}</span>
+                    )}
                   </div>
-                )}
 
-                <div className="relative p-4 pt-3">
-                  {/* Rank + team name row */}
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-2xl font-bold"
-                      style={{ background: `${color}22`, border: `1px solid ${color}44` }}>
-                      {rank === 1 ? <Crown className="w-6 h-6" style={{ color }} /> : RANK_MEDALS[rank - 1] ?? <span className="text-base text-muted-foreground">{rank}</span>}
+                  {/* Team */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="relative shrink-0">
+                      <img src={logo} alt={row.team_id} className="w-8 h-8 object-contain"
+                        style={{ filter: eliminated ? "saturate(0)" : `drop-shadow(0 0 6px ${color}55)` }} />
+                      {(qualified || eliminated) && (
+                        <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full text-[7px] font-bold flex items-center justify-center
+                          ${qualified ? "bg-emerald-500 text-black" : "bg-rose-500 text-white"}`}>
+                          {qualified ? "✓" : "✗"}
+                        </span>
+                      )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-display text-2xl tracking-wide leading-none" style={{ color }}>
+                    <div className="min-w-0">
+                      <div className="font-display text-base tracking-wider leading-none" style={{ color: eliminated ? "rgba(255,255,255,0.3)" : color }}>
                         {teamObj?.shortName ?? row.team_id}
                       </div>
-                      <div className="text-[10px] text-white/40 truncate mt-0.5">
-                        {teamObj?.fullName && teamObj.fullName !== teamObj.shortName ? teamObj.fullName : teamObj?.home ?? ""}
-                      </div>
+                      {teamObj?.home && (
+                        <div className="text-[9px] text-white/20 truncate mt-0.5 tracking-wide">{teamObj.home}</div>
+                      )}
                     </div>
-                    {/* Logo in header */}
-                    <img src={logo} alt="" className="w-9 h-9 object-contain opacity-80 shrink-0" />
                   </div>
 
-                  {/* Points — hero */}
-                  <div className="text-center mb-4">
-                    <div className="font-display text-6xl font-black leading-none" style={{ color, textShadow: `0 0 30px ${color}88` }}>
-                      {row.pts}
-                    </div>
-                    <div className="text-[9px] uppercase tracking-[0.2em] text-white/35 mt-1">Points</div>
-                  </div>
+                  {/* Played */}
+                  <div className="text-center font-mono text-sm text-white/40">{row.P}</div>
 
-                  {/* Stats grid */}
-                  <div className="grid grid-cols-3 gap-1.5 mb-3">
-                    {[
-                      { k: "P", v: row.P, cls: "text-white/70" },
-                      { k: "W", v: row.W, cls: "text-emerald-400 font-bold" },
-                      { k: "L", v: row.L, cls: "text-rose-400" },
-                    ].map(({ k, v, cls }) => (
-                      <div key={k} className="rounded-lg px-2 py-2 text-center" style={{ background: "rgba(255,255,255,0.05)" }}>
-                        <div className="text-[8px] uppercase tracking-widest text-white/30">{k}</div>
-                        <div className={`font-display text-xl ${cls}`}>{v}</div>
-                      </div>
-                    ))}
+                  {/* Wins */}
+                  <div className="text-center font-mono text-sm font-semibold text-emerald-400">{row.W}</div>
+
+                  {/* Losses */}
+                  <div className="text-center font-mono text-sm text-rose-400/80">{row.L}</div>
+
+                  {/* Points — hero column */}
+                  <div className="flex justify-center">
+                    <div className="relative px-3 py-1 rounded-lg" style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+                      <span className="font-display text-xl font-black leading-none" style={{ color, textShadow: `0 0 20px ${color}66` }}>
+                        {row.pts}
+                      </span>
+                    </div>
                   </div>
 
                   {/* NRR */}
-                  <div className="flex items-center justify-between text-xs mb-3 px-0.5">
-                    <span className="text-white/35 uppercase tracking-widest text-[9px]">NRR</span>
-                    <div className={`flex items-center gap-1 font-mono font-bold text-sm ${nrrPositive ? "text-emerald-400" : row.nrr < 0 ? "text-rose-400" : "text-white/50"}`}>
-                      {nrrPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {row.nrr > 0 ? "+" : ""}{row.nrr.toFixed(3)}
-                    </div>
+                  <div className={`flex items-center justify-center gap-1 font-mono text-xs font-semibold
+                    ${nrrPos ? "text-emerald-400" : row.nrr < 0 ? "text-rose-400" : "text-white/40"}`}>
+                    {nrrPos ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3 opacity-60" />}
+                    {row.nrr > 0 ? "+" : ""}{row.nrr.toFixed(3)}
                   </div>
 
                   {/* Form */}
-                  {row.form.length > 0 && (
-                    <div className="flex items-center gap-1 mb-3">
-                      <span className="text-[8px] uppercase tracking-widest text-white/30 mr-1">Form</span>
-                      {row.form.map((f, i) => (
-                        <span key={i} className={`w-5 h-5 rounded text-[9px] font-bold flex items-center justify-center ${FORM_COLORS[f] ?? "bg-secondary"}`}>{f}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Qual % bar */}
-                  {q.qualPct !== undefined && (
-                    <div className="space-y-1 mb-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="text-white/35">Playoff chance</span>
-                        <span className={`font-bold font-mono ${q.qualPct >= 75 ? "text-emerald-400" : q.qualPct <= 15 ? "text-rose-400" : "text-primary"}`}>
-                          {q.qualPct}%
+                  <div className="flex items-center justify-center gap-0.5">
+                    {row.form.slice(-5).map((f, i) => {
+                      const fc = FORM_CONFIG[f];
+                      return fc ? (
+                        <span key={i} className="w-5 h-5 rounded text-[9px] font-bold flex items-center justify-center"
+                          style={{ background: fc.bg, color: fc.text, boxShadow: fc.glow }}>
+                          {f}
                         </span>
-                      </div>
-                      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
-                        <div className={`h-full rounded-full transition-all ${q.qualPct >= 75 ? "bg-emerald-400" : q.qualPct <= 15 ? "bg-rose-500" : "bg-primary"}`}
-                          style={{ width: `${q.qualPct}%` }} />
-                      </div>
-                    </div>
-                  )}
+                      ) : null;
+                    })}
+                    {row.form.length === 0 && <span className="text-[9px] text-white/15">—</span>}
+                  </div>
 
-                  {/* Expand */}
-                  <button className="w-full mt-2.5 flex items-center justify-center gap-1 text-[10px] text-white/25 hover:text-white/60 transition-colors">
-                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                    {isExpanded ? "Hide" : "Scenario"}
-                  </button>
-
-                  {isExpanded && (
-                    <div className="mt-2 p-2.5 rounded-xl text-[11px] text-white/60 leading-relaxed border border-white/10"
-                      style={{ background: "rgba(255,255,255,0.04)" }}>
-                      {q.scenario ?? "No qualification scenario computed yet."}
-                    </div>
-                  )}
+                  {/* Playoff chance */}
+                  <div className="flex flex-col items-center gap-1">
+                    {q.qualPct !== undefined ? (
+                      <>
+                        <span className={`text-xs font-bold font-mono ${
+                          q.qualPct >= 75 ? "text-emerald-400" :
+                          q.qualPct <= 15 ? "text-rose-400" :
+                          "text-amber-400"
+                        }`}>{q.qualPct}%</span>
+                        <div className="w-12 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                          <div className="h-full rounded-full transition-all duration-700"
+                            style={{
+                              width: `${q.qualPct}%`,
+                              background: q.qualPct >= 75 ? "#34d399" : q.qualPct <= 15 ? "#f87171" : "#fbbf24",
+                              boxShadow: q.qualPct >= 75 ? "0 0 6px rgba(52,211,153,0.5)" : "none",
+                            }} />
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-[9px] text-white/15">—</span>
+                    )}
+                  </div>
                 </div>
+
+                {/* Expanded scenario */}
+                {isExpanded && q.scenario && (
+                  <div className="px-4 pb-3 ml-[2.5rem]">
+                    <div className="text-[11px] text-white/50 leading-relaxed px-3 py-2.5 rounded-lg"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      {q.scenario}
+                    </div>
+                  </div>
+                )}
+
+                {/* Expand indicator */}
+                {q.scenario && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-white/15 group-hover:text-white/40 transition-colors">
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </div>
+                )}
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* ── TABLE VIEW ── */
-        <div className="rounded-xl border border-border/60 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-[10px] uppercase tracking-widest text-muted-foreground bg-secondary/40">
-                <tr>
-                  <th className="px-3 py-2 text-center w-9">#</th>
-                  <th className="px-3 py-2 text-left">Team</th>
-                  <th className="px-2 py-2 text-center">P</th>
-                  <th className="px-2 py-2 text-center">W</th>
-                  <th className="px-2 py-2 text-center">L</th>
-                  <th className="px-2 py-2 text-center font-bold text-primary">Pts</th>
-                  <th className="px-2 py-2 text-center">NRR</th>
-                  <th className="px-2 py-2 text-center">Qual%</th>
-                  <th className="px-3 py-2 text-center">Form</th>
-                </tr>
-              </thead>
-              <tbody>
-                {table.map((row, idx) => {
-                  const rank = idx + 1;
-                  const q = qual[row.team_id] ?? {};
-                  const color = teamColor(row.team_id, league.teams);
-                  const logo = teamLogo(row.team_id);
-                  const inPlayoffs = rank <= playoffSpots;
-                  const qualified = q.status === "Q";
-                  const eliminated = q.status === "E";
-                  return (
-                    <tr key={row.team_id}
-                      className={`border-t border-border/30 cursor-pointer hover:bg-secondary/20 transition-colors relative
-                        ${qualified ? "bg-emerald-500/5" : eliminated ? "bg-rose-500/5 opacity-70" : inPlayoffs ? "bg-primary/5" : ""}`}
-                      onClick={() => toggle(row.team_id)}
-                      title={q.scenario}
-                    >
-                      <td className="px-3 py-2.5 text-center">
-                        {rank === 1 ? <Crown className="w-4 h-4 text-yellow-400 mx-auto" /> :
-                          qualified ? <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/20 border border-emerald-500/40 rounded px-1.5 py-0.5">Q</span> :
-                          eliminated ? <span className="text-[10px] font-bold text-rose-400 bg-rose-500/20 border border-rose-500/40 rounded px-1.5 py-0.5">E</span> :
-                          <span className="text-muted-foreground text-sm">{rank}</span>}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <img src={logo} alt={row.team_id} className="w-6 h-6 object-contain opacity-80" />
-                          <div className="font-display text-base tracking-wider" style={{ color }}>{row.team_id}</div>
-                        </div>
-                        {expanded === row.team_id && q.scenario && (
-                          <div className="text-[10px] text-muted-foreground mt-0.5 max-w-xs">{q.scenario}</div>
-                        )}
-                      </td>
-                      <td className="px-2 py-2.5 text-center font-mono text-xs">{row.P}</td>
-                      <td className="px-2 py-2.5 text-center font-mono text-xs text-emerald-400 font-semibold">{row.W}</td>
-                      <td className="px-2 py-2.5 text-center font-mono text-xs text-rose-400">{row.L}</td>
-                      <td className="px-2 py-2.5 text-center font-display text-lg font-bold text-primary">{row.pts}</td>
-                      <td className={`px-2 py-2.5 text-center font-mono text-xs ${row.nrr > 0 ? "text-emerald-400" : row.nrr < 0 ? "text-rose-400" : ""}`}>
-                        {row.nrr > 0 ? "+" : ""}{row.nrr.toFixed(3)}
-                      </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <span className={`text-xs font-bold font-mono ${(q.qualPct ?? 0) >= 75 ? "text-emerald-400" : (q.qualPct ?? 0) <= 15 ? "text-rose-400" : "text-primary"}`}>{q.qualPct ?? 0}%</span>
-                          <div className="w-10 h-1 rounded-full bg-secondary/60 overflow-hidden">
-                            <div className={`h-full ${(q.qualPct ?? 0) >= 75 ? "bg-emerald-500" : (q.qualPct ?? 0) <= 15 ? "bg-rose-500" : "bg-primary"}`} style={{ width: `${q.qualPct ?? 0}%` }} />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex gap-0.5 justify-center">
-                          {row.form.map((f, i) => (
-                            <span key={i} className={`w-5 h-5 rounded text-[9px] font-bold flex items-center justify-center ${FORM_COLORS[f] ?? "bg-secondary"}`}>{f}</span>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-4 py-2.5 border-t border-border/40 flex flex-wrap gap-3 items-center text-[10px] text-muted-foreground bg-secondary/10">
-            <span className="flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center font-bold text-[9px]">Q</span>Qualified</span>
-            <span className="flex items-center gap-1.5"><span className="w-5 h-4 rounded bg-rose-500/20 text-rose-400 border border-rose-500/40 flex items-center justify-center font-bold text-[9px]">E</span>Eliminated</span>
-            <span className="ml-auto italic">Click a row to view qualification scenario.</span>
-          </div>
-        </div>
-      )}
+
+              {/* Playoff cut divider */}
+              {isPlayoffBoundary && idx < table.length - 1 && (
+                <div className="relative flex items-center gap-2 px-4 py-1.5 my-0.5">
+                  <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, rgba(248,113,113,0.25), rgba(248,113,113,0.06))" }} />
+                  <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-rose-400/50 whitespace-nowrap">Elimination zone</span>
+                  <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, rgba(248,113,113,0.06), transparent)" }} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 px-2 pt-2 text-[9px] text-white/25 uppercase tracking-widest">
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />Qualified
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full bg-rose-400" />Eliminated
+        </span>
+        <span className="ml-auto italic normal-case tracking-normal text-white/15">Click a row to view scenario</span>
+      </div>
     </div>
   );
 }

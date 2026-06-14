@@ -80,7 +80,11 @@ export default function SquadDepth() {
     if (!league || !rows.length) return [];
     return league.teams.map(team => {
       const squad = rows.filter(r => r.team_id === team.id);
-      const analysis = analyzeSquad(squad);
+      const players = squad.map((s: any) => ({
+        role: s.players?.role ?? "",
+        rating: s.players?.rating ?? 60,
+      }));
+      const analysis = analyzeSquad(players, team.id);
       return { team, squad, analysis };
     }).filter(t => t.squad.length > 0);
   }, [league, rows]);
@@ -152,8 +156,8 @@ export default function SquadDepth() {
           {teamAnalyses.map(({ team, squad, analysis }) => {
             const tc = teamColor(team.id, league.teams);
             const logo = teamLogo(team.id);
-            const rb: RoleBalance = analysis.roleBalance;
-            const maxRole = Math.max(rb.batters, rb.bowlers, rb.allRounders, rb.wicketKeepers, 1);
+            const rb: RoleBalance = analysis;
+            const maxRole = Math.max(rb.bat, rb.bowl, rb.ar, rb.wk, 1);
 
             const captain = squad.find((s: any) => s.is_captain);
             const viceCaptain = squad.find((s: any) => s.is_vice_captain);
@@ -210,9 +214,9 @@ export default function SquadDepth() {
                       )}
 
                       {/* Alerts */}
-                      {analysis.gaps.length > 0 && (
+                      {analysis.warnings.length > 0 && (
                         <div className="mt-4 space-y-1.5">
-                          {analysis.gaps.map((gap: string, i: number) => (
+                          {analysis.warnings.map((gap: string, i: number) => (
                             <div key={i} className="flex items-start gap-2 text-xs px-3 py-2 rounded-lg"
                               style={{ background: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
                               <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
@@ -221,7 +225,7 @@ export default function SquadDepth() {
                           ))}
                         </div>
                       )}
-                      {analysis.gaps.length === 0 && (
+                      {analysis.warnings.length === 0 && (
                         <div className="mt-4 flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
                           style={{ background: "rgba(52, 211, 153, 0.1)", border: "1px solid rgba(52, 211, 153, 0.2)" }}>
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
@@ -239,10 +243,10 @@ export default function SquadDepth() {
                     </div>
                     <div className="p-5 space-y-5">
                       {[
-                        { key: "batters",       val: rb.batters,       role: "bat" },
-                        { key: "bowlers",       val: rb.bowlers,       role: "bowl" },
-                        { key: "allRounders",   val: rb.allRounders,   role: "ar" },
-                        { key: "wicketKeepers", val: rb.wicketKeepers, role: "wk" },
+                        { key: "bat",  val: rb.bat,  role: "bat" },
+                        { key: "bowl", val: rb.bowl, role: "bowl" },
+                        { key: "ar",   val: rb.ar,   role: "ar" },
+                        { key: "wk",   val: rb.wk,   role: "wk" },
                       ].map(({ key, val, role }) => {
                         const rc = ROLE_CONFIG[role];
                         return (
